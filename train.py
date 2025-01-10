@@ -4,16 +4,15 @@ import os.path
 import sys
 
 import numpy as np
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from torch.autograd import Variable
-from PIL import Image
 import torch
+import torchvision.transforms as transforms
+from PIL import Image
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from datasets import ImageDataset
 from network.models import Generator, Discriminator
 from utils.utils import ReplayBuffer, LambdaLR, Logger, weights_init_normal
-from datasets import ImageDataset
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -109,11 +108,14 @@ if __name__ == '__main__':
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
         train_losses = []
-        # for i, batch in enumerate(dataloader):
         for batch in data_loader_train:
             # Set model input
-            real_A = Variable(input_A.copy_(batch['A']))
-            real_B = Variable(input_B.copy_(batch['B']))
+            real_A = batch['A'].to(device).requires_grad_(True)
+            real_B = batch['B'].to(device).requires_grad_(True)
+
+            # If you need to update input_A and input_B for some reason:
+            input_A = real_A.detach().clone()
+            input_B = real_B.detach().clone()
 
             ###### Generators A2B and B2A ######
             optimizer_G.zero_grad()
@@ -199,7 +201,7 @@ if __name__ == '__main__':
         lr_scheduler_D_B.step()
 
         # Save models checkpoints
-        torch.save(netG_A2B.state_dict(), 'output/netG_A2B.pth')
-        torch.save(netG_B2A.state_dict(), 'output/netG_B2A.pth')
-        torch.save(netD_A.state_dict(), 'output/netD_A.pth')
-        torch.save(netD_B.state_dict(), 'output/netD_B.pth')
+        torch.save(netG_A2B.state_dict(), 'checkpoint/netG_A2B.pth')
+        torch.save(netG_B2A.state_dict(), 'checkpoint/netG_B2A.pth')
+        torch.save(netD_A.state_dict(), 'checkpoint/netD_A.pth')
+        torch.save(netD_B.state_dict(), 'checkpoint/netD_B.pth')
