@@ -1,7 +1,6 @@
-#!/usr/bin/python3
-
 import argparse
 import itertools
+import os.path
 import sys
 
 import numpy as np
@@ -12,12 +11,8 @@ from PIL import Image
 import torch
 from tqdm import tqdm
 
-from models import Generator
-from models import Discriminator
-from utils import ReplayBuffer
-from utils import LambdaLR
-from utils import Logger
-from utils import weights_init_normal
+from network.models import Generator, Discriminator
+from utils.utils import ReplayBuffer, LambdaLR, Logger, weights_init_normal
 from datasets import ImageDataset
 
 if __name__ == '__main__':
@@ -27,13 +22,15 @@ if __name__ == '__main__':
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataroot', type=str, default='datasets/cbct2ct/', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=100, help='epoch to start linearly decaying the learning rate to 0')
+    parser.add_argument('--decay_epoch', type=int, default=100,
+                        help='epoch to start linearly decaying the learning rate to 0')
+    parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
     parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
     opt = parser.parse_args()
     print(opt)
 
@@ -60,10 +57,14 @@ if __name__ == '__main__':
 
     if opt.resume:
         # Load state dicts
-        netG_A2B.load_state_dict(torch.load('output/netG_A2B.pth'))
-        netG_B2A.load_state_dict(torch.load('output/netG_B2A.pth'))
-        netD_A.load_state_dict(torch.load('output/netD_A.pth'))
-        netD_B.load_state_dict(torch.load('output/netD_B.pth'))
+        netG_A2B.load_state_dict(
+            torch.load(os.path.join(opt.model_path, 'netG_A2B.pth'), weights_only=False, map_location='cpu'))
+        netG_B2A.load_state_dict(
+            torch.load(os.path.join(opt.model_path, 'netG_B2A.pth'), weights_only=False, map_location='cpu'))
+        netD_A.load_state_dict(
+            torch.load(os.path.join(opt.model_path, 'netD_A.pth'), weights_only=False, map_location='cpu'))
+        netD_B.load_state_dict(
+            torch.load(os.path.join(opt.model_path, 'netD_B.pth'), weights_only=False, map_location='cpu'))
 
     # Lossess
     criterion_GAN = torch.nn.MSELoss()
@@ -83,27 +84,17 @@ if __name__ == '__main__':
     lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
                                                                                            opt.decay_epoch).step)
 
-    # Inputs & targets memory allocation
-    # Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-    # input_A = Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size)
-    # input_B = Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size)
-    # target_real = Variable(Tensor(opt.batchSize).fill_(1.0), requires_grad=False)
-    # target_fake = Variable(Tensor(opt.batchSize).fill_(0.0), requires_grad=False)
-
-    # 为输入和目标张量分配内存
     device = torch.device('cuda' if opt.cuda else 'cpu')
 
     input_A = torch.zeros(opt.batchSize, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batchSize, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    # 为目标张量分配并初始化
     target_real = torch.full((opt.batchSize,), 1.0, device=device, dtype=torch.float32)
     target_fake = torch.full((opt.batchSize,), 0.0, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    # Dataset loader
     transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BICUBIC),
                    transforms.RandomCrop(opt.size),
                    transforms.RandomHorizontalFlip(),
@@ -114,9 +105,7 @@ if __name__ == '__main__':
 
     # Loss plot
     logger = Logger(opt.n_epochs, len(dataloader))
-    ###################################
 
-    ###### Training ######
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
         train_losses = []
@@ -161,7 +150,6 @@ if __name__ == '__main__':
             data_loader_train.desc = f"[train epoch {epoch}] loss: {np.mean(train_losses):.4f} "
 
             optimizer_G.step()
-            ###################################
 
             ###### Discriminator A ######
             optimizer_D_A.zero_grad()
@@ -180,7 +168,6 @@ if __name__ == '__main__':
             loss_D_A.backward()
 
             optimizer_D_A.step()
-            ###################################
 
             ###### Discriminator B ######
             optimizer_D_B.zero_grad()
@@ -199,12 +186,12 @@ if __name__ == '__main__':
             loss_D_B.backward()
 
             optimizer_D_B.step()
-            ###################################
 
             # # Progress report (http://localhost:8097)
-            logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B), 'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
+            logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B),
+                        'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
                         'loss_G_cycle': (loss_cycle_ABA + loss_cycle_BAB), 'loss_D': (loss_D_A + loss_D_B)},
-                        images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
+                       images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
 
         # Update learning rates
         lr_scheduler_G.step()
@@ -216,4 +203,3 @@ if __name__ == '__main__':
         torch.save(netG_B2A.state_dict(), 'output/netG_B2A.pth')
         torch.save(netD_A.state_dict(), 'output/netD_A.pth')
         torch.save(netD_B.state_dict(), 'output/netD_B.pth')
-    ###################################

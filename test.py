@@ -1,22 +1,24 @@
 import argparse
+import os
 import shutil
 import sys
-import os
 
-import torchvision.transforms as transforms
-from torchvision.utils import save_image
-from torch.utils.data import DataLoader
-from torch.autograd import Variable
 import torch
+import torchvision.transforms as transforms
+from torch.autograd import Variable
+from torch.utils.data import DataLoader
+from torchvision.utils import save_image
 from tqdm import tqdm
 
-from models import Generator
 from datasets import ImageDataset
+from network.models import Generator
+
 
 def remove_and_create_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -27,8 +29,10 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true', help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth', help='A2B generator checkpoint file')
-    parser.add_argument('--generator_B2A', type=str, default='output/netG_B2A.pth', help='B2A generator checkpoint file')
+    parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth',
+                        help='A2B generator checkpoint file')
+    parser.add_argument('--generator_B2A', type=str, default='output/netG_B2A.pth',
+                        help='B2A generator checkpoint file')
     opt = parser.parse_args()
     print(opt)
 
@@ -45,8 +49,8 @@ if __name__ == '__main__':
         netG_B2A.cuda()
 
     # Load state dicts
-    netG_A2B.load_state_dict(torch.load(opt.generator_A2B))
-    netG_B2A.load_state_dict(torch.load(opt.generator_B2A))
+    netG_A2B.load_state_dict(torch.load(opt.generator_A2B, weights_only=False, map_location='cpu'))
+    netG_B2A.load_state_dict(torch.load(opt.generator_B2A, weights_only=False, map_location='cpu'))
 
     # Set model's test mode
     netG_A2B.eval()

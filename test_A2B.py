@@ -13,7 +13,7 @@ from torch.utils.data import Dataset
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from models import Generator
+from network.models import Generator
 
 
 class ImageDataset(Dataset):
@@ -58,7 +58,7 @@ def test_a2b(input_path, output_path):
     if opt.cuda:
         netG_A2B.cuda()
 
-    netG_A2B.load_state_dict(torch.load(opt.generator_A2B))
+    netG_A2B.load_state_dict(torch.load(opt.generator_A2B, weights_only=False, map_location='cpu'))
 
     netG_A2B.eval()
 
@@ -81,7 +81,7 @@ def test_a2b(input_path, output_path):
 
         fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
 
-        save_image(fake_B, os.path.join(output_path,  f"{i:04d}.png"))
+        save_image(fake_B, os.path.join(output_path, f"{i:04d}.png"))
 
         sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
 
