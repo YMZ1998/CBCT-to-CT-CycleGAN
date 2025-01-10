@@ -18,8 +18,8 @@ def export_to_onnx():
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-    parser.add_argument('--generator_A2B', type=str, default='../checkpoint/netG_A2B.pth',
-                        help='A2B generator checkpoint file')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
+    parser.add_argument('--model_path', type=str, default='../checkpoint', help="Path to save model checkpoints")
     opt = parser.parse_args()
     print(opt)
 
@@ -27,18 +27,21 @@ def export_to_onnx():
 
     netG_A2B = Generator(opt.input_nc, opt.output_nc)
     netG_A2B.to(device)
-    netG_A2B.load_state_dict(torch.load(opt.generator_A2B, weights_only=False, map_location='cpu'))
+    weights_A2B = str(os.path.join(opt.model_path, opt.anatomy, 'netG_A2B.pth'))
+    netG_A2B.load_state_dict(torch.load(weights_A2B, weights_only=False, map_location='cpu'))
 
     netG_A2B.eval()
     x = torch.randn(1, opt.input_nc, opt.size, opt.size).to(device)
 
     torch_out = netG_A2B(x)
 
-    onnx_file_name = os.path.join("../checkpoint", "cbct2ct.onnx")
+    onnx_file_name = str(os.path.join(opt.model_path, opt.anatomy, "cbct2ct.onnx"))
 
     torch.onnx.export(netG_A2B, x, onnx_file_name,
                       input_names=["input", "mask"], output_names=["output"],
                       verbose=True)
+    print(f"Model saved as ONNX to {onnx_file_name}.")
+
     try:
         onnx_model = onnx.load(onnx_file_name)
         onnx.checker.check_model(onnx_model)
@@ -56,8 +59,6 @@ def export_to_onnx():
     # print(to_numpy(torch_out) - ort_outs[0])
     np.testing.assert_allclose(to_numpy(torch_out), ort_outs[0], rtol=1e-03, atol=1e-05)
     print("Exported model has been tested with ONNXRuntime, and the result looks good!")
-
-    print(f"Model saved as ONNX to {onnx_file_name}.")
 
 
 if __name__ == '__main__':

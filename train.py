@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
 from datasets import ImageDataset
@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
+    parser.add_argument('--sample', type=int, default=5000, help='sample')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
@@ -34,8 +35,8 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     print(opt)
 
-    opt.model_path=str(os.path.join(opt.model_path, opt.anatomy))
-    opt.dataset_path=str(os.path.join(opt.dataset_path, opt.anatomy))
+    opt.model_path = str(os.path.join(opt.model_path, opt.anatomy))
+    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy))
     os.makedirs(opt.model_path, exist_ok=True)
 
     if torch.cuda.is_available() and not opt.cuda:
@@ -104,8 +105,14 @@ if __name__ == '__main__':
                    transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataloader = DataLoader(ImageDataset(opt.dataset_path, transforms_=transforms_, unaligned=True),
-                            batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
+    dataset = ImageDataset(opt.dataset_path, transforms_=transforms_, unaligned=True)
+
+    if len(dataset) >= opt.sample:
+        sampler = RandomSampler(dataset, replacement=True, num_samples=opt.sample)
+        dataloader = DataLoader(dataset, sampler=sampler, batch_size=opt.batch_size, shuffle=True,
+                                num_workers=opt.n_cpu, drop_last=True)
+    else:
+        dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 
     # Loss plot
     logger = Logger(opt.n_epochs, len(dataloader))
