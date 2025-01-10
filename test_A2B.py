@@ -43,8 +43,9 @@ def test_a2b(input_path, output_path):
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true', help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='checkpoint/netG_A2B.pth',
-                        help='A2B generator checkpoint file')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
+    parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
+
     opt = parser.parse_args()
     print(opt)
 
@@ -56,7 +57,8 @@ def test_a2b(input_path, output_path):
     if opt.cuda:
         netG_A2B.cuda()
 
-    netG_A2B.load_state_dict(torch.load(opt.generator_A2B, weights_only=False, map_location='cpu'))
+    weights_A2B = str(os.path.join(opt.model_path, opt.anatomy, 'netG_A2B.pth'))
+    netG_A2B.load_state_dict(torch.load(weights_A2B, weights_only=False, map_location='cpu'))
 
     netG_A2B.eval()
 
@@ -87,7 +89,7 @@ def test_a2b(input_path, output_path):
 
 
 if __name__ == '__main__':
-    input_path = r'./test_data/brain'
+    input_path = r'./test_data/brain_1_image'
     output_path = r'./test_data/brain_a2b'
     # output_path = r'output/B'
     test_a2b(input_path, output_path)

@@ -40,7 +40,7 @@ def test_a2b(input_path, output_path):
         image = (image / 255.0 - 0.5) / 0.5  # 归一化到 [-1, 1]
         image = np.expand_dims(image, axis=0)  # 添加 channel 维度
         image = np.expand_dims(image, axis=0)  # 添加 batch 维度
-
+        print(image.shape)
         # 运行 ONNX 推理
         fake_B = session.run(None, {input_name: image.astype(np.float32)})[0]
 

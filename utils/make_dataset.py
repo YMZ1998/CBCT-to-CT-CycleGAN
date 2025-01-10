@@ -14,6 +14,16 @@ def copy_files(src_dir, dst_dir, prefix, file_list):
         shutil.copy(src_path, dst_path)
 
 
+def split_dataset(file_list, train_ratio):
+    num_samples = len(file_list)
+    num_train = int(num_samples * train_ratio)
+    indices = list(range(num_samples))
+    random.shuffle(indices)
+    train_indices = indices[:num_train]
+    test_indices = indices[num_train:]
+    return [file_list[i] for i in train_indices], [file_list[i] for i in test_indices]
+
+
 def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
     patient_dirs = [os.path.join(data_dir, d) for d in os.listdir(data_dir) if os.path.isdir(os.path.join(data_dir, d))]
 
@@ -29,19 +39,10 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
             cbct_files.extend(
                 [os.path.join(patient_dir, 'cbct', f) for f in os.listdir(cbct_dir) if f.endswith('.png')])
 
-    assert len(ct_files) == len(cbct_files), "CT and CBCT files must have the same length."
-
-    num_samples = len(ct_files)
-    num_train = int(num_samples * train_ratio)
-    indices = list(range(num_samples))
-    random.shuffle(indices)
-    train_indices = indices[:num_train]
-    test_indices = indices[num_train:]
-
-    ct_train_files = [ct_files[i] for i in train_indices]
-    cbct_train_files = [cbct_files[i] for i in train_indices]
-    ct_test_files = [ct_files[i] for i in test_indices]
-    cbct_test_files = [cbct_files[i] for i in test_indices]
+    # print(len(ct_files), len(cbct_files))
+    # 分别划分 CT 和 CBCT 数据集
+    ct_train_files, ct_test_files = split_dataset(ct_files, train_ratio)
+    cbct_train_files, cbct_test_files = split_dataset(cbct_files, train_ratio)
 
     copy_files('', os.path.join(output_dir, 'train', 'A'), 'cbct', cbct_train_files)
     copy_files('', os.path.join(output_dir, 'train', 'B'), 'ct', ct_train_files)
@@ -51,8 +52,8 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
 
 
 def main():
-    data_dir = r'D:\Data\cbct_ct\brain'
-    output_dir = r'../datasets/cbct2ct'
+    data_dir = r'D:\Data\cbct_ct\pelvis_internals'
+    output_dir = r'../datasets/pelvis'
 
     if os.path.exists(output_dir):
         shutil.rmtree(output_dir)

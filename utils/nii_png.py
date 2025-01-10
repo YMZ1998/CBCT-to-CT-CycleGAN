@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import tqdm
 import SimpleITK as sitk
-from PIL import Image  # 用于保存 PNG 图像
+from PIL import Image
 
 
 def pad_image(image, target_size=(256, 256)):
@@ -146,10 +146,11 @@ def transfer_one_case(path, result, target_size=(256, 256)):
 
 
 if __name__ == '__main__':
-    path_in = r'D:\Data\SynthRAD\Task2\brain'
-    path_out = r'D:\Data\cbct_ct\brain'
-    # transfer_folder(path_in, path_out)
+    anatomy = 'pelvis'
+    path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
+    path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
+    transfer_folder(path_in, path_out)
 
-    path = r'../test_data/brain.nii.gz'
-    result = r'../test_data/brain'
-    transfer_one_case(path, result)
+    path = r'../test_data/brain_1/cbct.nii.gz'
+    result = r'../test_data/brain_1_image'
+    # transfer_one_case(path, result)

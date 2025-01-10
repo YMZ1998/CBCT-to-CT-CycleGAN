@@ -1,6 +1,7 @@
 import argparse
 import os
 import shutil
+import sys
 import time
 
 import SimpleITK as sitk
@@ -10,7 +11,7 @@ import onnxruntime
 from tqdm import tqdm
 
 
-def post_process(out, location, original_size, min_v=-1024, max_v=3000):
+def post_process(out, location, original_size, min_v=-1024, max_v=1024):
     out = np.squeeze(out)
     location = np.squeeze(location)
     if original_size is not None:
@@ -60,7 +61,7 @@ def img_padding(img, x=288, y=288, v=0):
     return padded_img, img_location
 
 
-def load_data(cbct_path, mask_path, shape):
+def load_data(cbct_path, shape):
     # 读取CBCT图像
     origin_cbct = sitk.ReadImage(cbct_path)
     cbct_array = sitk.GetArrayFromImage(origin_cbct)
@@ -74,7 +75,7 @@ def load_data(cbct_path, mask_path, shape):
         print("Resampling CBCT...")
         max_shape = max(cbct_array.shape[1], cbct_array.shape[2])
         # print("Max shape: ", max_shape)
-        cbct_array, img_location = img_padding(cbct_array, max_shape, max_shape, -1)
+        cbct_array, img_location = img_padding(cbct_array, max_shape, max_shape, np.min(cbct_array))
         padding_cbct = sitk.GetImageFromArray(cbct_array)
         padding_cbct.SetSpacing(original_spacing)
         # sitk.WriteImage(padding_cbct, os.path.join(args.result_path, "padding_cbct.nii.gz"))
@@ -113,13 +114,12 @@ def val_onnx(args):
 
     os.makedirs(args.result_path, exist_ok=True)
     assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
-    assert os.path.exists(args.mask_path), f"Mask file does not exist at {args.mask_path}"
     assert os.path.exists(args.onnx_path), f"Onnx file does not exist at {args.onnx_path}"
 
-    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, args.mask_path, shape)
+    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, shape)
 
     length = len(cbct_padded)
-    cbct_vecs, location_vecs = [], [], []
+    cbct_vecs, location_vecs = [], []
     for index in range(length):
         cbct_vecs.append(cbct_padded[index])
         location_vecs.append(img_location)
@@ -130,15 +130,15 @@ def val_onnx(args):
     start_time = time.time()
 
     out_results = []
-    for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch),
-                                      total=len(cbct_batch)):
+    for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
+        cbct = np.expand_dims(cbct, 0)
         cbct = np.expand_dims(cbct, 0)
         output_name = session.get_outputs()[0].name
         ort_inputs = {session.get_inputs()[0].name: (cbct)}
-        result = session.run([output_name], ort_inputs)[0].squeeze(0)
 
-        out_cal, mask_cal = post_process(result, image_locations, origin_cbct.GetSize())
-        out_cal = np.where(mask_cal == 0, -1000, out_cal)
+        result = session.run([output_name], ort_inputs)[0]
+
+        out_cal = post_process(result, image_locations, origin_cbct.GetSize())
 
         out_results.append(np.expand_dims(out_cal, axis=0))
 
@@ -172,12 +172,11 @@ if __name__ == '__main__':
         usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
     # parser.add_argument("--image_size", default=320, type=int)
-    parser.add_argument('--onnx_path', type=str, default='./checkpoint',
-                        help="Path to onnx")
+    parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='brain', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, required=True, help="Path to cbct file")
-    parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
-    parser.add_argument('--result_path', type=str, required=True, help="Path to save results")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
+    # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
+    parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
     args = parser.parse_args()
     print(args)

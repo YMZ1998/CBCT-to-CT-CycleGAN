@@ -33,8 +33,8 @@ def png_to_nii(folder_path, output_path, spacing=(1.0, 1.0, 1.0), origin=(0.0, 0
 
 
 if __name__ == '__main__':
-    folder_path = r'./test_data/brain_a2b'
-    output_path = r'./test_data/brain_predict.nii.gz'
+    folder_path = r'../test_data/brain_a2b'
+    output_path = r'../test_data/brain_predict.nii.gz'
 
     spacing = (1.0, 1.0, 1.0)
     origin = (0.0, 0.0, 0.0)

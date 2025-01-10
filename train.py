@@ -18,8 +18,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataset_path', type=str, default='datasets/cbct2ct/', help='root directory of the dataset')
+    parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
+    parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
@@ -32,6 +33,10 @@ if __name__ == '__main__':
     parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
     opt = parser.parse_args()
     print(opt)
+
+    opt.model_path=str(os.path.join(opt.model_path, opt.anatomy))
+    opt.dataset_path=str(os.path.join(opt.dataset_path, opt.anatomy))
+    os.makedirs(opt.model_path, exist_ok=True)
 
     if torch.cuda.is_available() and not opt.cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
@@ -100,7 +105,7 @@ if __name__ == '__main__':
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataloader = DataLoader(ImageDataset(opt.dataset_path, transforms_=transforms_, unaligned=True),
-                            batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu)
+                            batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 
     # Loss plot
     logger = Logger(opt.n_epochs, len(dataloader))
@@ -201,7 +206,7 @@ if __name__ == '__main__':
         lr_scheduler_D_B.step()
 
         # Save models checkpoints
-        torch.save(netG_A2B.state_dict(), 'checkpoint/netG_A2B.pth')
-        torch.save(netG_B2A.state_dict(), 'checkpoint/netG_B2A.pth')
-        torch.save(netD_A.state_dict(), 'checkpoint/netD_A.pth')
-        torch.save(netD_B.state_dict(), 'checkpoint/netD_B.pth')
+        torch.save(netG_A2B.state_dict(), os.path.join(opt.model_path, 'netG_A2B.pth'))
+        torch.save(netG_B2A.state_dict(), os.path.join(opt.model_path, 'netG_B2A.pth'))
+        torch.save(netD_A.state_dict(), os.path.join(opt.model_path, 'netD_A.pth'))
+        torch.save(netD_B.state_dict(), os.path.join(opt.model_path, 'netD_B.pth'))

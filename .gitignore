@@ -8,7 +8,9 @@ __pycache__/
 
 *.png
 *.onnx
+*.nii.gz
 
+datasets/
 test_data/
 .idea/
 # Distribution / packaging
