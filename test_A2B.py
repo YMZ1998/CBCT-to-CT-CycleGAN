@@ -38,14 +38,12 @@ def remove_and_create_dir(path):
 def test_a2b(input_path, output_path):
     parser = argparse.ArgumentParser()
     parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    # parser.add_argument('--datadir', type=str, default=r'D:\Data\cbct_ct\2BA001\cbct',
-    #                     help='root directory of the dataset')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true', help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth',
+    parser.add_argument('--generator_A2B', type=str, default='checkpoint/netG_A2B.pth',
                         help='A2B generator checkpoint file')
     opt = parser.parse_args()
     print(opt)

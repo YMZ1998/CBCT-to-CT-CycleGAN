@@ -148,8 +148,8 @@ def transfer_one_case(path, result, target_size=(256, 256)):
 if __name__ == '__main__':
     path_in = r'D:\Data\SynthRAD\Task2\brain'
     path_out = r'D:\Data\cbct_ct\brain'
-    transfer_folder(path_in, path_out)
+    # transfer_folder(path_in, path_out)
 
-    # path = r'./test_data/brain.nii.gz'
-    # result = r'./test_data/brain'
-    # transfer_one_case(path, result)
+    path = r'../test_data/brain.nii.gz'
+    result = r'../test_data/brain'
+    transfer_one_case(path, result)

@@ -1,4 +1,6 @@
+import os
 import random
+import shutil
 import time
 import datetime
 import sys
@@ -53,7 +55,7 @@ class Logger():
         sys.stdout.write('ETA: %s' % (datetime.timedelta(seconds=batches_left * self.mean_period / batches_done)))
 
         # Draw images
-        if (self.batch % 100) == 0:
+        if (self.batch % 10) == 0:
             for image_name, tensor in images.items():
                 if image_name not in self.image_windows:
                     self.image_windows[image_name] = self.viz.image(tensor2image(tensor.data),
@@ -135,3 +137,9 @@ def weights_init_normal(m):
     elif isinstance(m, nn.BatchNorm2d):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)  # 假设存在 bias
+
+
+def remove_and_create_dir(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+    os.makedirs(path, exist_ok=True)
