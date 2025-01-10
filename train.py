@@ -19,8 +19,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default='datasets/cbct2ct/', help='root directory of the dataset')
+    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
+    parser.add_argument('--dataset_path', type=str, default='datasets/cbct2ct/', help='root directory of the dataset')
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
     opt = parser.parse_args()
     print(opt)
 
@@ -86,11 +86,11 @@ if __name__ == '__main__':
 
     device = torch.device('cuda' if opt.cuda else 'cpu')
 
-    input_A = torch.zeros(opt.batchSize, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
-    input_B = torch.zeros(opt.batchSize, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
+    input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
+    input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_real = torch.full((opt.batchSize,), 1.0, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batchSize,), 0.0, device=device, dtype=torch.float32)
+    target_real = torch.full((opt.batch_size, 1), 1.0, device=device, dtype=torch.float32)
+    target_fake = torch.full((opt.batch_size, 1), 0.0, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
@@ -100,8 +100,8 @@ if __name__ == '__main__':
                    transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataloader = DataLoader(ImageDataset(opt.dataroot, transforms_=transforms_, unaligned=True),
-                            batch_size=opt.batchSize, shuffle=True, num_workers=opt.n_cpu)
+    dataloader = DataLoader(ImageDataset(opt.dataset_path, transforms_=transforms_, unaligned=True),
+                            batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu)
 
     # Loss plot
     logger = Logger(opt.n_epochs, len(dataloader))
