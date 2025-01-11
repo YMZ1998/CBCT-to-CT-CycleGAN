@@ -143,3 +143,11 @@ def remove_and_create_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
+
+def normalize(data, anatomy='pelvis'):
+    if anatomy == 'pelvis':
+        data = np.clip(data, -1000, 1000)
+    elif anatomy == 'brain':
+        data = np.clip(data, -1000, 2000)
+    data_min, data_max = np.min(data), np.max(data)
+    return (data - data_min) / (data_max - data_min + 1e-8)

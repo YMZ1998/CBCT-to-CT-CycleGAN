@@ -9,16 +9,20 @@ from matplotlib import pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 
 
-def normalize(data):
-    data = np.clip(data, -500, 1000)
+def normalize(data, anatomy='pelvis'):
+    if anatomy == 'pelvis':
+        data = np.clip(data, -1000, 1000)
+    elif anatomy == 'brain':
+        data = np.clip(data, -1000, 2000)
     data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
 
 
 class NpyDataset(Dataset):
-    def __init__(self, root, transforms_=None, unaligned=False, mode='train'):
+    def __init__(self, root, transforms_=None, unaligned=False, mode='train', anatomy='pelvis'):
         self.transform = transforms.Compose(transforms_) if transforms_ else None
         self.unaligned = unaligned
+        self.anatomy = anatomy
 
         self.files_A = sorted(glob.glob(os.path.join(root, '%s/A' % mode, '*.npy')))
         self.files_B = sorted(glob.glob(os.path.join(root, '%s/B' % mode, '*.npy')))
@@ -26,7 +30,7 @@ class NpyDataset(Dataset):
     def __getitem__(self, index):
         item_A = np.load(self.files_A[index % len(self.files_A)]).astype(np.float32)
 
-        item_A = normalize(item_A)
+        item_A = normalize(item_A, self.anatomy)
         item_A = Image.fromarray(item_A)
         if self.transform:
             item_A = self.transform(item_A)
@@ -36,7 +40,7 @@ class NpyDataset(Dataset):
         else:
             item_B = np.load(self.files_B[index % len(self.files_B)]).astype(np.float32)
 
-        item_B = normalize(item_B)
+        item_B = normalize(item_B, self.anatomy)
         item_B = Image.fromarray(item_B)
 
         if self.transform:
@@ -76,13 +80,14 @@ def test_npy_dataset():
     root = './datasets/pelvis'  # 替换为你的数据集路径
     # root = './datasets/brain'  # 替换为你的数据集路径
 
-    transforms_ = [transforms.Resize(int(256), Image.BILINEAR),
-                   # transforms.RandomCrop(256),
-                   transforms.RandomHorizontalFlip(),
-                   transforms.ToTensor(),
-                   transforms.Normalize([0.5], [0.5])]
+    transforms_ = [
+        transforms.Resize(int(256), Image.BILINEAR),
+        # transforms.RandomCrop(256),
+        # transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5])]
 
-    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train')
+    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train',anatomy='pelvis')
     # dataset = ImageDataset(root=root, transforms_=transforms_, unaligned=True, mode='train')
 
     print(f"数据集大小: {len(dataset)}")

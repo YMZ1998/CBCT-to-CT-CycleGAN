@@ -60,9 +60,8 @@ def main():
     data_dir = r'D:\Data\cbct_ct\brain'
     output_dir = r'../datasets/brain'
 
-    remove_and_create_dir(output_dir)
-
-    prepare_cyclegan_dataset(data_dir, output_dir)
+    # remove_and_create_dir(output_dir)
+    # prepare_cyclegan_dataset(data_dir, output_dir)
 
     print(f"CycleGAN dataset saved to {output_dir}")
 
