@@ -10,6 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 
 
 def normalize(data):
+    data = np.clip(data, -500, 1000)
     data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
 

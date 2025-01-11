@@ -39,7 +39,7 @@ def plot_images(ct_images, cbct_images):
 
 
 if __name__ == '__main__':
-    dataset_dir = r'../datasets/pelvis'
+    dataset_dir = r'../datasets/brain'
     trainA_dir = os.path.join(dataset_dir, 'train', 'A')
     trainB_dir = os.path.join(dataset_dir, 'train', 'B')
 

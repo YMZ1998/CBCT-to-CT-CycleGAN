@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -14,6 +15,30 @@ from torchvision.utils import save_image
 from tqdm import tqdm
 
 from network.models import Generator
+
+
+def normalize(data):
+    data_min, data_max = np.min(data), np.max(data)
+    return (data - data_min) / (data_max - data_min + 1e-8)
+
+
+class NpyDataset(Dataset):
+    def __init__(self, folder, transforms_=None):
+        self.transform = transforms.Compose(transforms_)
+        self.files_A = sorted(glob.glob(os.path.join(folder, '*.*')))
+
+    def __getitem__(self, index):
+        item_A = np.load(self.files_A[index % len(self.files_A)]).astype(np.float32)
+
+        item_A = normalize(item_A)
+        item_A = Image.fromarray(item_A)
+        if self.transform:
+            item_A = self.transform(item_A)
+
+        return {'A': item_A}
+
+    def __len__(self):
+        return len(self.files_A)
 
 
 class ImageDataset(Dataset):
@@ -63,11 +88,11 @@ def test_a2b(input_path, output_path):
     netG_A2B.eval()
 
     Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-    input_A = Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size)
+    input_A = Tensor(opt.batch_size, opt.input_nc, opt.size, opt.size)
 
     transforms_ = [transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataloader = DataLoader(ImageDataset(input_path, transforms_=transforms_),
+    dataloader = DataLoader(NpyDataset(input_path, transforms_=transforms_),
                             batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
     remove_and_create_dir(output_path)
@@ -81,7 +106,8 @@ def test_a2b(input_path, output_path):
 
         fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
 
-        save_image(fake_B, os.path.join(output_path, f"{i:04d}.png"))
+        save_image((real_A + 1.0) * 0.5, os.path.join(output_path, f"{i:04d}_A.png"))
+        save_image(fake_B, os.path.join(output_path, f"{i:04d}_B.png"))
 
         sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
 

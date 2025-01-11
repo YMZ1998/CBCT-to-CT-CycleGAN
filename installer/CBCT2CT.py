@@ -11,7 +11,7 @@ import onnxruntime
 from tqdm import tqdm
 
 
-def post_process(out, location, original_size, min_v=-1024, max_v=2000):
+def post_process(out, location, original_size, min_v=-1000, max_v=2000):
     out = np.squeeze(out)
     location = np.squeeze(location)
     if original_size is not None:
@@ -41,8 +41,10 @@ def save_array_as_nii(array, file_path, reference=None):
 
 
 def img_normalize(img):
+    img = np.clip(img, -500, 1000)
     min_value = np.min(img)
     max_value = np.max(img)
+    print("min_value: ", min_value, "max_value: ", max_value)
     img = (img - min_value) / (max_value - min_value)
     img = img * 2 - 1
     return img
@@ -70,11 +72,15 @@ def load_data(cbct_path, shape):
     original_spacing = origin_cbct.GetSpacing()
     print("Original spacing: ", original_spacing)
 
+    if int(np.min(cbct_array)) == 0:
+        cbct_array = cbct_array - 1024
+
     # 如果CBCT尺寸大于目标尺寸，进行重采样
     if cbct_array.shape[1] > shape[0] or cbct_array.shape[2] > shape[1]:
         print("Resampling CBCT...")
         max_shape = max(cbct_array.shape[1], cbct_array.shape[2])
         # print("Max shape: ", max_shape)
+        # print(np.min(cbct_array))
         cbct_array, img_location = img_padding(cbct_array, max_shape, max_shape, np.min(cbct_array))
         padding_cbct = sitk.GetImageFromArray(cbct_array)
         padding_cbct.SetSpacing(original_spacing)
@@ -98,7 +104,7 @@ def load_data(cbct_path, shape):
         print("New spacing: ", new_spacing)
         # sitk.WriteImage(cbct_resampled, os.path.join(args.result_path, "resample_cbct.nii.gz"))
 
-        cbct_padded = img_normalize(cbct_array)
+        cbct_array = img_normalize(cbct_array)
 
     else:
         cbct_array = img_normalize(cbct_array)
@@ -127,6 +133,16 @@ def val_onnx(args):
     locations_batch = np.concatenate(location_vecs[:], axis=0).astype(np.float32)
 
     session = onnxruntime.InferenceSession(args.onnx_path)
+
+    # providers = [
+    #     'CUDAExecutionProvider',
+    #     'TensorrtExecutionProvider',
+    #     'CPUExecutionProvider'
+    # ]
+    #
+    # session = onnxruntime.InferenceSession(args.onnx_path, providers=providers)
+    # print(onnxruntime.get_available_providers())
+
     start_time = time.time()
 
     out_results = []
@@ -175,12 +191,12 @@ if __name__ == '__main__':
         usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
     # parser.add_argument("--image_size", default=320, type=int)
-    parser.add_argument('--onnx_path', type=str, default='../checkpoint/brain', help="Path to onnx")
+    parser.add_argument('--onnx_path', type=str, default='../checkpoint/pelvis', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_1/cbct.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis.nii.gz', help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
-    parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
+    parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
     args = parser.parse_args()
     print(args)
