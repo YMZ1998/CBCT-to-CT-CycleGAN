@@ -100,9 +100,9 @@ if __name__ == '__main__':
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BILINEAR),
-                   transforms.RandomCrop(opt.size),
-                   transforms.RandomHorizontalFlip(),
+    transforms_ = [transforms.Resize(int(opt.size), Image.BILINEAR),
+                   # transforms.RandomCrop(opt.size),
+                   # transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True)
