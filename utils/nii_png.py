@@ -79,8 +79,9 @@ def save_png_images(file_path, ct, cbct, mask):
 
 
 def normalize_to_uint8(data):
-    # print(data.max() , data.min())
-    data_normalized = (data - data.min()) / (data.max() - data.min() + 1e-8) * 255
+    # print(data.max(), data.min())
+    data_normalized = (data - data.min()) / (2000 - data.min() + 1e-8) * 255
+    data_normalized = np.clip(data_normalized, 0, 255)
     return data_normalized.astype(np.uint8)
 
 
@@ -149,8 +150,8 @@ if __name__ == '__main__':
     anatomy = 'pelvis'
     path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
     path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
-    transfer_folder(path_in, path_out)
+    # transfer_folder(path_in, path_out)
 
-    path = r'../test_data/brain_1/cbct.nii.gz'
-    result = r'../test_data/brain_1_image'
-    # transfer_one_case(path, result)
+    path = r'../test_data/pelvis.nii.gz'
+    result = r'../test_data/pelvis'
+    transfer_one_case(path, result)

@@ -37,7 +37,7 @@ def remove_and_create_dir(path):
 
 def test_a2b(input_path, output_path):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
+    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
@@ -68,7 +68,7 @@ def test_a2b(input_path, output_path):
     transforms_ = [transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataloader = DataLoader(ImageDataset(input_path, transforms_=transforms_),
-                            batch_size=opt.batchSize, shuffle=False, num_workers=opt.n_cpu)
+                            batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
     remove_and_create_dir(output_path)
     # remove_and_create_dir('output/B')
@@ -89,7 +89,7 @@ def test_a2b(input_path, output_path):
 
 
 if __name__ == '__main__':
-    input_path = r'./test_data/brain_1_image'
-    output_path = r'./test_data/brain_a2b'
+    input_path = r'./test_data/pelvis'
+    output_path = r'./test_data/result'
     # output_path = r'output/B'
     test_a2b(input_path, output_path)

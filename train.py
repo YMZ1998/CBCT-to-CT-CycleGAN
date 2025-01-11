@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
-    parser.add_argument('--sample', type=int, default=5000, help='sample')
+    parser.add_argument('--sample', type=int, default=2000, help='sample')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
     opt = parser.parse_args()
     print(opt)
 
@@ -109,8 +109,7 @@ if __name__ == '__main__':
 
     if len(dataset) >= opt.sample:
         sampler = RandomSampler(dataset, replacement=True, num_samples=opt.sample)
-        dataloader = DataLoader(dataset, sampler=sampler, batch_size=opt.batch_size, shuffle=True,
-                                num_workers=opt.n_cpu, drop_last=True)
+        dataloader = DataLoader(dataset, sampler=sampler, batch_size=opt.batch_size, num_workers=opt.n_cpu)
     else:
         dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 

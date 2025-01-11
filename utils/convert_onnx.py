@@ -39,7 +39,7 @@ def export_to_onnx():
 
     torch.onnx.export(netG_A2B, x, onnx_file_name,
                       input_names=["input", "mask"], output_names=["output"],
-                      verbose=True)
+                      verbose=False)
     print(f"Model saved as ONNX to {onnx_file_name}.")
 
     try:
