@@ -105,7 +105,7 @@ if __name__ == '__main__':
                    # transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True)
+    dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True, anatomy=opt.anatomy)
 
     if len(dataset) >= opt.sample:
         sampler = RandomSampler(dataset, replacement=True, num_samples=opt.sample)
