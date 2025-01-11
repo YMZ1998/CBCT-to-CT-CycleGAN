@@ -4,13 +4,16 @@ import random
 import sys
 
 from tqdm import tqdm
+from utils import remove_and_create_dir
+
+suffix='npy'
 
 
 def copy_files(src_dir, dst_dir, prefix, file_list):
     os.makedirs(dst_dir, exist_ok=True)
     for i, file_name in tqdm(enumerate(file_list), file=sys.stdout, total=len(file_list)):
         src_path = os.path.join(src_dir, file_name)
-        dst_path = os.path.join(dst_dir, f"{prefix}_{i}.png")
+        dst_path = os.path.join(dst_dir, f"{prefix}_{i}.{suffix}")
         shutil.copy(src_path, dst_path)
 
 
@@ -35,9 +38,9 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
         cbct_dir = os.path.join(patient_dir, 'cbct')
 
         if os.path.exists(ct_dir) and os.path.exists(cbct_dir):
-            ct_files.extend([os.path.join(patient_dir, 'ct', f) for f in os.listdir(ct_dir) if f.endswith('.png')])
+            ct_files.extend([os.path.join(patient_dir, 'ct', f) for f in os.listdir(ct_dir) if f.endswith(f'.{suffix}')])
             cbct_files.extend(
-                [os.path.join(patient_dir, 'cbct', f) for f in os.listdir(cbct_dir) if f.endswith('.png')])
+                [os.path.join(patient_dir, 'cbct', f) for f in os.listdir(cbct_dir) if f.endswith(f'.{suffix}')])
 
     # print(len(ct_files), len(cbct_files))
     # 分别划分 CT 和 CBCT 数据集
@@ -52,12 +55,10 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
 
 
 def main():
-    data_dir = r'D:\Data\cbct_ct\pelvis_internals'
+    data_dir = r'D:\Data\cbct_ct\pelvis_internals2'
     output_dir = r'../datasets/pelvis'
 
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir, exist_ok=True)
+    remove_and_create_dir(output_dir)
 
     prepare_cyclegan_dataset(data_dir, output_dir)
 

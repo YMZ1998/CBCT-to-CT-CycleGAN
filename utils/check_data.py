@@ -4,14 +4,6 @@ import random
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
-def load_npy_data(file_path):
-    if os.path.exists(file_path):
-        return np.load(file_path)
-    else:
-        raise FileNotFoundError(f"{file_path} does not exist.")
-
-
 def load_png_images(folder_path):
     image_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.png')])
     images = []

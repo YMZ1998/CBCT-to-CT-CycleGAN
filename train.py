@@ -10,7 +10,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
-from datasets import ImageDataset
+from dataset import ImageDataset, NpyDataset
 from network.models import Generator, Discriminator
 from utils.utils import ReplayBuffer, LambdaLR, Logger, weights_init_normal
 
@@ -100,12 +100,12 @@ if __name__ == '__main__':
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BICUBIC),
+    transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BILINEAR),
                    transforms.RandomCrop(opt.size),
                    transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataset = ImageDataset(opt.dataset_path, transforms_=transforms_, unaligned=True)
+    dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True)
 
     if len(dataset) >= opt.sample:
         sampler = RandomSampler(dataset, replacement=True, num_samples=opt.sample)
@@ -121,10 +121,10 @@ if __name__ == '__main__':
         train_losses = []
         for batch in data_loader_train:
             # Set model input
-            real_A = batch['A'].to(device).requires_grad_(True)
-            real_B = batch['B'].to(device).requires_grad_(True)
+            real_A = batch['A'].to(device)
+            real_B = batch['B'].to(device)
+            # print(real_A.max(), real_A.min())
 
-            # If you need to update input_A and input_B for some reason:
             input_A = real_A.detach().clone()
             input_B = real_B.detach().clone()
 
