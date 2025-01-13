@@ -36,6 +36,7 @@ class NpyDataset(Dataset):
             item_A = self.transform(item_A)
 
         if self.unaligned:
+            # print(self.files_B[random.randint(0, len(self.files_B) - 1)])
             item_B = np.load(self.files_B[random.randint(0, len(self.files_B) - 1)]).astype(np.float32)
         else:
             item_B = np.load(self.files_B[index % len(self.files_B)]).astype(np.float32)
@@ -74,11 +75,9 @@ class ImageDataset(Dataset):
         return max(len(self.files_A), len(self.files_B))
 
 
-# 测试函数
 def test_npy_dataset():
-    # 数据集根目录
-    root = './datasets/pelvis'  # 替换为你的数据集路径
-    # root = './datasets/brain'  # 替换为你的数据集路径
+    root = './datasets/pelvis'
+    # root = './datasets/brain'
 
     transforms_ = [
         transforms.Resize(int(256), Image.BILINEAR),
@@ -87,7 +86,7 @@ def test_npy_dataset():
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])]
 
-    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train',anatomy='pelvis')
+    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train', anatomy='pelvis')
     # dataset = ImageDataset(root=root, transforms_=transforms_, unaligned=True, mode='train')
 
     print(f"数据集大小: {len(dataset)}")

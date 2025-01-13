@@ -18,6 +18,7 @@ from network.models import Generator
 
 
 def normalize(data):
+    data = np.clip(data, -1000, 1000)
     data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
 
@@ -66,7 +67,7 @@ def test_a2b(input_path, output_path):
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-    parser.add_argument('--cuda', action='store_true', help='use GPU computation')
+    parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")

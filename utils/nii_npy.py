@@ -69,9 +69,11 @@ def save_png_images(file_path, ct, cbct, mask):
     for i in range(len(cbct)):
         if i % 2 == 0:
             continue
+        if np.unique(ct[i]).size == 1 or np.unique(cbct[i]).size == 1:
+            # print(f"{file_path}: Skipping {i}")
+            continue
         ct_img = normalize_to_uint8(ct[i])
         cbct_img = normalize_to_uint8(cbct[i])
-        # mask_img = normalize_to_uint8(mask[i])
 
         np.save(os.path.join(ct_dir, f"{i}.npy"), ct_img)
         np.save(os.path.join(cbct_dir, f"{i}.npy"), cbct_img)
@@ -86,10 +88,16 @@ def normalize_to_uint8(data):
 
 def load_images(file_path):
     try:
-        assert os.path.exists(file_path+ '/cbct.nii.gz')
-        assert os.path.exists(file_path+ '/ct.nii.gz')
-        cbct = sitk.GetArrayFromImage(sitk.ReadImage(file_path + '/cbct.nii.gz'))
-        ct = sitk.GetArrayFromImage(sitk.ReadImage(file_path + '/ct.nii.gz'))
+        cbct_path = os.path.join(file_path, 'cbct.nii.gz')
+        ct_path = os.path.join(file_path, 'ct.nii.gz')
+
+        if not os.path.exists(cbct_path):
+            raise FileNotFoundError(f"文件 {cbct_path} 不存在。")
+        if not os.path.exists(ct_path):
+            raise FileNotFoundError(f"文件 {ct_path} 不存在。")
+
+        cbct = sitk.GetArrayFromImage(sitk.ReadImage(cbct_path))
+        ct = sitk.GetArrayFromImage(sitk.ReadImage(ct_path))
         if int(np.min(cbct)) == 0:
             cbct = cbct - 1024
         # mask = sitk.GetArrayFromImage(sitk.ReadImage(file_path + '/mask.nii.gz'))
@@ -156,10 +164,13 @@ def transfer_one_case(path, result, target_size=(256, 256)):
 
 
 if __name__ == '__main__':
-    anatomy = 'brain'
+    anatomy = 'pelvis'
     path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
     path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
-    # transfer_folder(path_in, path_out)
+
+    # path_in = r'D:\Data\CBCT2CT\Data'
+    # path_out = os.path.join(r'D:\Data\cbct_ct', 'pelvis')
+    transfer_folder(path_in, path_out)
 
     path = r'../test_data/pelvis.nii.gz'
     result = r'../test_data/pelvis'

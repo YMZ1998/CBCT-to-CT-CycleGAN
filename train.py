@@ -10,7 +10,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, RandomSampler
 from tqdm import tqdm
 
-from dataset import ImageDataset, NpyDataset
+from dataset import NpyDataset
 from network.models import Generator, Discriminator
 from utils.utils import ReplayBuffer, LambdaLR, Logger, weights_init_normal
 
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
     parser.add_argument('--sample', type=int, default=2000, help='sample')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='brain', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')

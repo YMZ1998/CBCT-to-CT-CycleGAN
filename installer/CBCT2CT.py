@@ -40,8 +40,11 @@ def save_array_as_nii(array, file_path, reference=None):
     sitk.WriteImage(sitk_image, file_path)
 
 
-def img_normalize(img):
-    img = np.clip(img, -500, 1000)
+def img_normalize(img, anatomy):
+    if anatomy == 'pelvis':
+        img = np.clip(img, -1000, 1000)
+    elif anatomy == 'brain':
+        img = np.clip(img, -1000, 2000)
     min_value = np.min(img)
     max_value = np.max(img)
     print("min_value: ", min_value, "max_value: ", max_value)
@@ -63,8 +66,7 @@ def img_padding(img, x=288, y=288, v=0):
     return padded_img, img_location
 
 
-def load_data(cbct_path, shape):
-    # 读取CBCT图像
+def load_data(cbct_path, shape, anatomy):
     origin_cbct = sitk.ReadImage(cbct_path)
     cbct_array = sitk.GetArrayFromImage(origin_cbct)
     original_size = origin_cbct.GetSize()
@@ -73,7 +75,7 @@ def load_data(cbct_path, shape):
     print("Original spacing: ", original_spacing)
 
     if int(np.min(cbct_array)) == 0:
-        cbct_array = cbct_array - 1024
+        cbct_array = cbct_array - 1000
 
     # 如果CBCT尺寸大于目标尺寸，进行重采样
     if cbct_array.shape[1] > shape[0] or cbct_array.shape[2] > shape[1]:
@@ -102,12 +104,12 @@ def load_data(cbct_path, shape):
         cbct_array = sitk.GetArrayFromImage(cbct_resampled)
         print("Resampled cbct shape: ", cbct_array.shape)
         print("New spacing: ", new_spacing)
-        # sitk.WriteImage(cbct_resampled, os.path.join(args.result_path, "resample_cbct.nii.gz"))
+        sitk.WriteImage(cbct_resampled, os.path.join(args.result_path, "resample_cbct.nii.gz"))
 
-        cbct_array = img_normalize(cbct_array)
+        cbct_array = img_normalize(cbct_array, anatomy)
 
     else:
-        cbct_array = img_normalize(cbct_array)
+        cbct_array = img_normalize(cbct_array, anatomy)
         cbct_array, img_location = img_padding(cbct_array, shape[0], shape[1], -1)
 
     return cbct_array, img_location, origin_cbct
@@ -122,7 +124,7 @@ def val_onnx(args):
     assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
     assert os.path.exists(args.onnx_path), f"Onnx file does not exist at {args.onnx_path}"
 
-    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, shape)
+    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, shape, args.anatomy)
 
     length = len(cbct_padded)
     cbct_vecs, location_vecs = [], []
@@ -146,10 +148,13 @@ def val_onnx(args):
     start_time = time.time()
 
     out_results = []
+    if args.anatomy == 'pelvis':
+        min_v = -1000
+        max_v = 1000
+    elif args.anatomy == 'brain':
+        min_v = -1000
+        max_v = 2000
     for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
-        # print(cbct.max(), cbct.min())
-        # cbct = img_normalize(cbct)
-        # print(cbct.max(), cbct.min())
         cbct = np.expand_dims(cbct, 0)
         cbct = np.expand_dims(cbct, 0)
         output_name = session.get_outputs()[0].name
@@ -157,7 +162,7 @@ def val_onnx(args):
 
         result = session.run([output_name], ort_inputs)[0]
 
-        out_cal = post_process(result, image_locations, origin_cbct.GetSize())
+        out_cal = post_process(result, image_locations, origin_cbct.GetSize(), min_v, max_v)
 
         out_results.append(np.expand_dims(out_cal, axis=0))
 
@@ -166,8 +171,6 @@ def val_onnx(args):
     predict_path = os.path.join(args.result_path, "predict.nii.gz")
 
     save_array_as_nii(out_results, predict_path, origin_cbct)
-    # if os.path.exists(args.mask_path.replace('mask', 'ct')):
-    #     shutil.copy(args.mask_path.replace('mask', 'ct'), mask_path.replace('mask', 'ct'))
     total_time = time.time() - start_time
     print("time {}s".format(total_time))
 
@@ -179,10 +182,6 @@ def remove_and_create_dir(path):
 
 
 if __name__ == '__main__':
-    # python CBCT2CT.py --cbct_path ./data/brain/test\2BA001\cbct.nii.gz --mask_path ./data/brain/test\2BA001\mask.nii.gz --result_path ./result --anatomy brain
-    # python CBCT2CT.py --cbct_path ./data/pelvis/test\2PA010\cbct.nii.gz --mask_path ./data/pelvis/test\2PA010\mask.nii.gz --result_path ./dist/result --anatomy pelvis
-    # python CBCT2CT.py --cbct_path ./dist/test_data/brain/cbct.nii.gz --mask_path ./dist/test_data/brain/mask.nii.gz --result_path ./dist/result --anatomy brain
-    # python CBCT2CT.py --cbct_path ./dist/test_data/pelvis/cbct.nii.gz --mask_path ./dist/test_data/pelvis/mask.nii.gz --result_path ./dist/result --anatomy pelvis
     # CBCT2CT.exe  --cbct_path ./test_data/cbct.nii.gz --mask_path ./test_data/mask.nii.gz --result_path ./result --anatomy brain
     # CBCT2CT.exe --cbct_path ./test_data/brain/cbct.nii.gz --mask_path ./test_data/brain/mask.nii.gz --result_path ./result --anatomy brain
     # CBCT2CT.exe --cbct_path ./test_data/pelvis/cbct.nii.gz --mask_path ./test_data/pelvis/mask.nii.gz --result_path ./result --anatomy pelvis
@@ -190,14 +189,15 @@ if __name__ == '__main__':
         prog='CBCT2CT.py',
         usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
-    # parser.add_argument("--image_size", default=320, type=int)
-    parser.add_argument('--onnx_path', type=str, default='../checkpoint/pelvis', help="Path to onnx")
+    parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis.nii.gz', help="Path to cbct file")
-    # parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
+    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_1/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
     parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
     args = parser.parse_args()
+
+    args.onnx_path = str(os.path.join(args.onnx_path, args.anatomy))
     print(args)
     val_onnx(args)
