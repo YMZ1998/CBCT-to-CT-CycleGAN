@@ -10,11 +10,15 @@ from torch.utils.data import Dataset, DataLoader
 
 
 def normalize(data, anatomy='pelvis'):
+    data_min, data_max = -1000, 1000
     if anatomy == 'pelvis':
         data = np.clip(data, -1000, 1000)
     elif anatomy == 'brain':
         data = np.clip(data, -1000, 2000)
-    data_min, data_max = np.min(data), np.max(data)
+        data_max = 2000
+    # data_min, data_max = np.min(data), np.max(data)
+    # print(data_min, data_max)
+
     return (data - data_min) / (data_max - data_min + 1e-8)
 
 

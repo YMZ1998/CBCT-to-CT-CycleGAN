@@ -19,7 +19,8 @@ from network.models import Generator
 
 def normalize(data):
     data = np.clip(data, -1000, 1000)
-    data_min, data_max = np.min(data), np.max(data)
+    data_min, data_max = -1000, 1000
+    # data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
 
 

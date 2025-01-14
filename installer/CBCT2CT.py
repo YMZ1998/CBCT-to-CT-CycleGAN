@@ -47,7 +47,7 @@ def img_normalize(img, anatomy):
         img = np.clip(img, -1000, 2000)
     min_value = np.min(img)
     max_value = np.max(img)
-    print("min_value: ", min_value, "max_value: ", max_value)
+    # print("min_value: ", min_value, "max_value: ", max_value)
     img = (img - min_value) / (max_value - min_value)
     img = img * 2 - 1
     return img
@@ -118,6 +118,7 @@ def load_data(cbct_path, shape, anatomy):
 def val_onnx(args):
     args.image_size = 256
     args.onnx_path = os.path.join(args.onnx_path, 'cbct2ct.onnx')
+    print(f"Onnx path: {args.onnx_path}")
     shape = [args.image_size, args.image_size]
 
     os.makedirs(args.result_path, exist_ok=True)
@@ -148,13 +149,14 @@ def val_onnx(args):
     start_time = time.time()
 
     out_results = []
+    min_v = -1000
+    max_v = 2000
     if args.anatomy == 'pelvis':
-        min_v = -1000
         max_v = 1000
     elif args.anatomy == 'brain':
-        min_v = -1000
         max_v = 2000
     for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
+        # cbct = img_normalize(cbct, args.anatomy)
         cbct = np.expand_dims(cbct, 0)
         cbct = np.expand_dims(cbct, 0)
         output_name = session.get_outputs()[0].name
@@ -191,8 +193,8 @@ if __name__ == '__main__':
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis.nii.gz', help="Path to cbct file")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_1/cbct.nii.gz', help="Path to cbct file")
+    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_1.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_2/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
     parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
