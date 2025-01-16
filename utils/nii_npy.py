@@ -41,7 +41,7 @@ def resample_image(image, target_size=(256, 256)):
     new_spacing = [
         original_spacing[0] * (original_size[0] / target_size[0]),
         original_spacing[1] * (original_size[1] / target_size[1]),
-        original_spacing[2] if len(original_size) > 2 else 1
+        original_spacing[2]
     ]
 
     resample_filter = sitk.ResampleImageFilter()
@@ -57,27 +57,26 @@ def resample_image(image, target_size=(256, 256)):
     return resampled_image
 
 
-def save_png_images(file_path, ct, cbct, mask):
+def save_png_images(file_path, ct, cbct):
     ct_dir = os.path.join(file_path, 'ct')
     cbct_dir = os.path.join(file_path, 'cbct')
-    # mask_dir = os.path.join(file_path, 'mask')
 
     os.makedirs(ct_dir, exist_ok=True)
     os.makedirs(cbct_dir, exist_ok=True)
-    # os.makedirs(mask_dir, exist_ok=True)
 
-    for i in range(len(cbct)):
-        if i % 2 == 0:
-            continue
-        if np.unique(ct[i]).size == 1 or np.unique(cbct[i]).size == 1:
-            # print(f"{file_path}: Skipping {i}")
+    for i in range(len(ct)):
+        if np.unique(ct[i]).size == 1:
             continue
         ct_img = normalize_to_uint8(ct[i])
-        cbct_img = normalize_to_uint8(cbct[i])
 
         np.save(os.path.join(ct_dir, f"{i}.npy"), ct_img)
+
+    for i in range(len(cbct)):
+        if np.unique(cbct[i]).size == 1:
+            continue
+        cbct_img = normalize_to_uint8(cbct[i])
+
         np.save(os.path.join(cbct_dir, f"{i}.npy"), cbct_img)
-        # np.save(os.path.join(mask_dir, f"{i}.npy"), mask_img)
 
 
 def normalize_to_uint8(data):
@@ -130,6 +129,7 @@ def transfer_folder(path_in, path_out, target_size=(256, 256)):
 
         ct_resampled = resample_image(ct_padded, target_size=target_size)
         cbct_resampled = resample_image(cbct_padded, target_size=target_size)
+        # print(ct_resampled.GetSize(), cbct_resampled.GetSize())
         # mask_resampled = resample_image(mask_padded, target_size=target_size)
 
         ct_resampled_np = sitk.GetArrayFromImage(ct_resampled)
@@ -137,7 +137,7 @@ def transfer_folder(path_in, path_out, target_size=(256, 256)):
         # mask_resampled_np = sitk.GetArrayFromImage(mask_resampled)
 
         # 保存为 PNG 格式
-        save_png_images(file_path_out, ct_resampled_np, cbct_resampled_np, None)
+        save_png_images(file_path_out, ct_resampled_np, cbct_resampled_np)
 
 
 def transfer_one_case(path, result, target_size=(256, 256)):
@@ -164,14 +164,14 @@ def transfer_one_case(path, result, target_size=(256, 256)):
 
 
 if __name__ == '__main__':
-    anatomy = 'pelvis'
-    path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
-    path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
+    # anatomy = 'pelvis'
+    # path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
+    # path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
 
-    # path_in = r'D:\Data\CBCT2CT\Data'
-    # path_out = os.path.join(r'D:\Data\cbct_ct', 'pelvis')
+    path_in = r'D:\Data\CBCT2CT2\Data'
+    path_out = os.path.join(r'D:\Data\cbct_ct', 'pelvis_inner')
     transfer_folder(path_in, path_out)
 
-    path = r'../test_data/pelvis.nii.gz'
-    result = r'../test_data/pelvis'
+    # path = r'../test_data/pelvis.nii.gz'
+    # result = r'../test_data/pelvis'
     # transfer_one_case(path, result)

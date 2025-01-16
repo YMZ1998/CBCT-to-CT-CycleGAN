@@ -43,7 +43,7 @@ if __name__ == '__main__':
     trainA_dir = os.path.join(dataset_dir, 'train', 'A')
     trainB_dir = os.path.join(dataset_dir, 'train', 'B')
 
-    num_samples = 3
+    num_samples = 4
     cbct_images = load_random_npy_files(trainA_dir, num_samples)
     ct_images = load_random_npy_files(trainB_dir, num_samples)
 

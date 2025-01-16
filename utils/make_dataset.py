@@ -55,7 +55,7 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
 
 
 def main():
-    data_dir = r'D:\Data\cbct_ct\pelvis'
+    data_dir = r'D:\Data\cbct_ct\pelvis_inner'
     output_dir = r'../datasets/pelvis'
     # data_dir = r'D:\Data\cbct_ct\brain'
     # output_dir = r'../datasets/brain'

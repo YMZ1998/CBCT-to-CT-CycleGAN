@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
     opt = parser.parse_args()
     print(opt)
 
@@ -100,9 +100,9 @@ if __name__ == '__main__':
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size), Image.BILINEAR),
-                   # transforms.RandomCrop(opt.size),
-                   # transforms.RandomHorizontalFlip(),
+    transforms_ = [transforms.Resize(int(opt.size*1.12), Image.BILINEAR),
+                   transforms.RandomCrop(opt.size),
+                   transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True, anatomy=opt.anatomy)

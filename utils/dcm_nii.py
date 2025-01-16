@@ -4,6 +4,8 @@ import SimpleITK as sitk
 import numpy as np
 from tqdm import tqdm
 
+from utils import remove_and_create_dir
+
 
 def load_dicom_series(directory):
     reader = sitk.ImageSeriesReader()
@@ -30,37 +32,58 @@ def resample_image(image, target_spacing, new_size):
     return resampled_image
 
 
+def pad_image(image, target_size):
+    size_diff = [target_size[i] - image.GetSize()[i] for i in range(3)]
+    pad_lower = [diff // 2 for diff in size_diff]
+    pad_upper = [diff - pad_lower[i] for i, diff in enumerate(size_diff)]
+
+    pad_lower[2] = 0
+    pad_upper[2] = 0
+
+    pad_filter = sitk.ConstantPadImageFilter()
+    pad_filter.SetPadLowerBound(pad_lower)
+    pad_filter.SetPadUpperBound(pad_upper)
+    pad_filter.SetConstant(-1000)  # 填充值（CT 的 air 值）
+    padded_image = pad_filter.Execute(image)
+
+    return padded_image
+
+
 def process_folder(input_dir, output_dir, target_spacing, mode='cbct'):
-    for root, dirs, files in os.walk(input_dir):
-        for dir_name in tqdm(dirs):
-            dicom_dir = os.path.join(root, dir_name)
-            # print(f"Processing: {dicom_dir}")
-            try:
-                image = load_dicom_series(dicom_dir)
+    patient_folders = [f for f in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, f))][:]
 
-                original_size = image.GetSize()
-                original_spacing = image.GetSpacing()
-                new_size = [
-                    int(np.round(original_size[0] * (original_spacing[0] / target_spacing[0]))),
-                    int(np.round(original_size[1] * (original_spacing[1] / target_spacing[1]))),
-                    int(np.round(original_size[2] * (original_spacing[2] / target_spacing[2])))
-                ]
+    for dir_name in tqdm(patient_folders):
+        dicom_dir = os.path.join(input_dir, dir_name)
+        # print(f"Processing: {dicom_dir}")
+        try:
+            image = load_dicom_series(dicom_dir)
 
-                image = resample_image(image, target_spacing, new_size)
+            original_size = image.GetSize()
+            original_spacing = image.GetSpacing()
+            new_size = [
+                int(np.round(original_size[0] * (original_spacing[0] / target_spacing[0]))),
+                int(np.round(original_size[1] * (original_spacing[1] / target_spacing[1]))),
+                int(np.round(original_size[2] * (original_spacing[2] / target_spacing[2])))
+            ]
 
-                # image.SetOrigin((0, 0, 0))
+            image = resample_image(image, target_spacing, new_size)
 
-                os.makedirs(os.path.join(output_dir, dir_name), exist_ok=True)
-                output_path = os.path.join(output_dir, dir_name, mode + ".nii.gz")
-                sitk.WriteImage(image, output_path)
-                # print(f"Saved resampled image to: {output_path}")
+            image = pad_image(image, [400, 400, 0])
 
-            except Exception as e:
-                print(f"Error processing {dicom_dir}: {e}")
+            # image.SetOrigin((0, 0, 0))
+
+            os.makedirs(os.path.join(output_dir, dir_name), exist_ok=True)
+            output_path = os.path.join(output_dir, dir_name, mode + ".nii.gz")
+            sitk.WriteImage(image, output_path)
+            # print(f"Saved resampled image to: {output_path}")
+
+        except Exception as e:
+            print(f"Error processing {dicom_dir}: {e}")
 
 
 def check_dcm():
-    path_in = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
+    # path_in = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
+    path_in = r"D:\Data\CBCT2CT2\CT"
     for p in os.listdir(path_in):
         dicom_dir = os.path.join(path_in, p)
         image = load_dicom_series(dicom_dir)
@@ -71,24 +94,37 @@ def check_dcm():
 
 def check_nii():
     # path_in = r"D:\Data\CBCT2CT\Data"
-    path_in = r"D:\Data\SynthRAD\Task2\brain"
+    # path_in = r"D:\Data\SynthRAD\Task2\brain"
+    path_in = r"D:\Data\CBCT2CT2\Data"
     for p in os.listdir(path_in):
+        print("-" * 30)
         path = os.path.join(path_in, p, 'cbct.nii.gz')
         image = sitk.ReadImage(path)
-        print(p, image.GetSize(), image.GetSpacing(), image.GetOrigin(), image.GetDirection())
+        print(p, image.GetSize(), image.GetSpacing(), image.GetOrigin())
+        path2 = os.path.join(path_in, p, 'ct.nii.gz')
+        image2 = sitk.ReadImage(path2)
+        print(p, image2.GetSize(), image2.GetSpacing(), image2.GetOrigin())
+        print("-" * 30)
 
 
-if __name__ == '__main__':
-    # check_dcm()
-    # check_nii()
-    input_dir = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CT"
-    input_dir2 = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
-    output_dir = r"D:\Data\CBCT2CT\Data"
-    target_spacing = [1.0, 1.0, 1.0]
+def transfer_folder():
+    # input_dir = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CT"
+    # input_dir2 = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
+    # output_dir = r"D:\Data\CBCT2CT\Data"
 
-    from utils import remove_and_create_dir
+    input_dir = r"D:\Data\CBCT2CT2\CT"
+    input_dir2 = r"D:\Data\CBCT2CT2\CBCT"
+    output_dir = r"D:\Data\CBCT2CT2\Data"
+
+    target_spacing = [1.5, 1.5, 2.5]
 
     remove_and_create_dir(output_dir)
 
     process_folder(input_dir, output_dir, target_spacing, mode='ct')
     process_folder(input_dir2, output_dir, target_spacing, mode='cbct')
+
+
+if __name__ == '__main__':
+    # check_dcm()
+    check_nii()
+    # transfer_folder()

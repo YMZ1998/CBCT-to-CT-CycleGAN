@@ -37,10 +37,8 @@ def plot_slice(ct_slice, cbct_slice):
 
 
 def visualize_random_slices(ct_data, cbct_data, num_samples=3):
-    depth = ct_data.shape[0]
+    depth = min(ct_data.shape[0], cbct_data.shape[0])
     slice_indices = random.sample(range(depth), num_samples)
-
-
 
     for idx in slice_indices:
         ct_slice = ct_data[idx]
@@ -53,9 +51,10 @@ def visualize_random_slices(ct_data, cbct_data, num_samples=3):
 
 
 def normalize_to_range(data):
-    data = np.clip(data, -1000, 1000)
+    data = np.clip(data, -1000, 2000)
     data_min, data_max = np.min(data), np.max(data)
     print(data_min, data_max)
+    data_max = 2000
     data = (data - data_min) / (data_max - data_min + 1e-8)
     return data
 
@@ -88,7 +87,8 @@ def visualize_with_visdom(ct_data, cbct_data, num_samples=3):
 
 
 def check():
-    data_dir = r'D:\Data\cbct_ct\pelvis\2PA055'
+    # data_dir = r'D:\Data\cbct_ct\pelvis\2PA055'
+    data_dir = r'D:\Data\cbct_ct\pelvis_inner\02157648-FM'
     # data_dir = r'D:\Data\cbct_ct\brain\2BA004'
     ct_path = os.path.join(data_dir, 'ct')
     cbct_path = os.path.join(data_dir, 'cbct')
