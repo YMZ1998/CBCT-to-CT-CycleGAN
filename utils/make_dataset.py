@@ -42,13 +42,13 @@ def prepare_cyclegan_dataset(data_dir, output_dir, train_ratio=0.8):
             cbct_files.extend(
                 [os.path.join(patient_dir, 'cbct', f) for f in os.listdir(cbct_dir) if f.endswith(f'.{suffix}')])
 
-    # print(len(ct_files), len(cbct_files))
+    print(len(ct_files), len(cbct_files))
     # 分别划分 CT 和 CBCT 数据集
     ct_train_files, ct_test_files = split_dataset(ct_files, train_ratio)
     cbct_train_files, cbct_test_files = split_dataset(cbct_files, train_ratio)
 
-    copy_files('', os.path.join(output_dir, 'train', 'A'), 'cbct', cbct_train_files)
-    copy_files('', os.path.join(output_dir, 'train', 'B'), 'ct', ct_train_files)
+    copy_files('', os.path.join(output_dir, 'train', 'A'), 'cbct', cbct_files)
+    copy_files('', os.path.join(output_dir, 'train', 'B'), 'ct', ct_files)
 
     copy_files('', os.path.join(output_dir, 'test', 'A'), 'cbct', cbct_test_files)
     copy_files('', os.path.join(output_dir, 'test', 'B'), 'ct', ct_test_files)

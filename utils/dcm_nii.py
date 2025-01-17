@@ -66,9 +66,8 @@ def process_folder(input_dir, output_dir, target_spacing, mode='cbct'):
                 int(np.round(original_size[2] * (original_spacing[2] / target_spacing[2])))
             ]
 
-            image = resample_image(image, target_spacing, new_size)
-
-            image = pad_image(image, [400, 400, 0])
+            # image = resample_image(image, target_spacing, new_size)
+            # image = pad_image(image, [400, 400, 0])
 
             # image.SetOrigin((0, 0, 0))
 
@@ -83,7 +82,7 @@ def process_folder(input_dir, output_dir, target_spacing, mode='cbct'):
 
 def check_dcm():
     # path_in = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
-    path_in = r"D:\Data\CBCT2CT2\CT"
+    path_in = r"D:\Data\CBCT2CT2\CBCT"
     for p in os.listdir(path_in):
         dicom_dir = os.path.join(path_in, p)
         image = load_dicom_series(dicom_dir)

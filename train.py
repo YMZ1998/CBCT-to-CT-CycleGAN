@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-    parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
+    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--sample', type=int, default=2000, help='sample')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
-    parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
+    parser.add_argument('--size', type=int, default=512, help='size of the data crop (squared assumed)')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
@@ -100,15 +100,16 @@ if __name__ == '__main__':
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size*1.12), Image.BILINEAR),
-                   transforms.RandomCrop(opt.size),
-                   transforms.RandomHorizontalFlip(),
+    transforms_ = [transforms.Resize(int(opt.size), Image.BILINEAR),
+                   # transforms.RandomCrop(opt.size),
+                   # transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True, anatomy=opt.anatomy)
 
     if len(dataset) >= opt.sample:
-        sampler = RandomSampler(dataset, replacement=True, num_samples=opt.sample)
+        print(f"dataset size:{len(dataset)}")
+        sampler = RandomSampler(dataset, replacement=False, num_samples=opt.sample)
         dataloader = DataLoader(dataset, sampler=sampler, batch_size=opt.batch_size, num_workers=opt.n_cpu)
     else:
         dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)

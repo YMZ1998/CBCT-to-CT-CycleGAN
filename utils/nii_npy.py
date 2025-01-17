@@ -57,7 +57,7 @@ def resample_image(image, target_size=(256, 256)):
     return resampled_image
 
 
-def save_png_images(file_path, ct, cbct):
+def save_images(file_path, ct, cbct):
     ct_dir = os.path.join(file_path, 'ct')
     cbct_dir = os.path.join(file_path, 'cbct')
 
@@ -106,7 +106,7 @@ def load_images(file_path):
         return None, None, None
 
 
-def transfer_folder(path_in, path_out, target_size=(256, 256)):
+def transfer_folder(path_in, path_out, target_size=(512, 512)):
     if os.path.exists(path_out):
         shutil.rmtree(path_out)
     os.makedirs(path_out, exist_ok=True)
@@ -123,21 +123,20 @@ def transfer_folder(path_in, path_out, target_size=(256, 256)):
         cbct_image = sitk.GetImageFromArray(cbct)
         # mask_image = sitk.GetImageFromArray(mask)
 
-        ct_padded = pad_image(ct_image, target_size=target_size)
-        cbct_padded = pad_image(cbct_image, target_size=target_size)
+        # ct_image = pad_image(ct_image, target_size=target_size)
+        # cbct_image = pad_image(cbct_image, target_size=target_size)
         # mask_padded = pad_image(mask_image, target_size=target_size)
 
-        ct_resampled = resample_image(ct_padded, target_size=target_size)
-        cbct_resampled = resample_image(cbct_padded, target_size=target_size)
+        # ct_image = resample_image(ct_image, target_size=target_size)
+        # cbct_image = resample_image(cbct_image, target_size=target_size)
         # print(ct_resampled.GetSize(), cbct_resampled.GetSize())
         # mask_resampled = resample_image(mask_padded, target_size=target_size)
 
-        ct_resampled_np = sitk.GetArrayFromImage(ct_resampled)
-        cbct_resampled_np = sitk.GetArrayFromImage(cbct_resampled)
+        ct_resampled_np = sitk.GetArrayFromImage(ct_image)
+        cbct_resampled_np = sitk.GetArrayFromImage(cbct_image)
         # mask_resampled_np = sitk.GetArrayFromImage(mask_resampled)
 
-        # 保存为 PNG 格式
-        save_png_images(file_path_out, ct_resampled_np, cbct_resampled_np)
+        save_images(file_path_out, ct_resampled_np, cbct_resampled_np)
 
 
 def transfer_one_case(path, result, target_size=(256, 256)):
