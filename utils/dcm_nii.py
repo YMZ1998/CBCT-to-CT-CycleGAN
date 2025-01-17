@@ -32,21 +32,57 @@ def resample_image(image, target_spacing, new_size):
     return resampled_image
 
 
-def pad_image(image, target_size):
-    size_diff = [target_size[i] - image.GetSize()[i] for i in range(3)]
-    pad_lower = [diff // 2 for diff in size_diff]
-    pad_upper = [diff - pad_lower[i] for i, diff in enumerate(size_diff)]
+import SimpleITK as sitk
 
+def pad_or_crop_image(image, target_size):
+    """
+    将图像填充或裁剪到目标尺寸。
+    - 如果图像尺寸小于目标尺寸，进行填充。
+    - 如果图像尺寸大于目标尺寸，进行裁剪。
+    - Z 轴保持不变。
+    """
+    original_size = image.GetSize()
+
+    # 计算每个维度的填充或裁剪量
+    lower_bound = [0, 0, 0]  # 裁剪的下边界
+    upper_bound = [0, 0, 0]  # 裁剪的上边界
+    pad_lower = [0, 0, 0]    # 填充的下边界
+    pad_upper = [0, 0, 0]    # 填充的上边界
+
+    for i in range(3):
+        size_diff = target_size[i] - original_size[i]
+
+        if size_diff > 0:
+            # 需要填充
+            pad_lower[i] = size_diff // 2
+            pad_upper[i] = size_diff - pad_lower[i]
+        else:
+            # 需要裁剪
+            lower_bound[i] = (original_size[i] - target_size[i]) // 2
+            upper_bound[i] = original_size[i] - target_size[i] - lower_bound[i]
+
+    # Z 轴保持不变
     pad_lower[2] = 0
     pad_upper[2] = 0
+    lower_bound[2] = 0
+    upper_bound[2] = 0
 
-    pad_filter = sitk.ConstantPadImageFilter()
-    pad_filter.SetPadLowerBound(pad_lower)
-    pad_filter.SetPadUpperBound(pad_upper)
-    pad_filter.SetConstant(-1000)  # 填充值（CT 的 air 值）
-    padded_image = pad_filter.Execute(image)
+    # 填充或裁剪
+    if any(pad_lower) or any(pad_upper):
+        # 填充
+        pad_filter = sitk.ConstantPadImageFilter()
+        pad_filter.SetPadLowerBound(pad_lower)
+        pad_filter.SetPadUpperBound(pad_upper)
+        pad_filter.SetConstant(-1000)  # 填充值（CT 的 air 值）
+        image = pad_filter.Execute(image)
+    elif any(lower_bound) or any(upper_bound):
+        # 裁剪
+        crop_filter = sitk.CropImageFilter()
+        crop_filter.SetLowerBoundaryCropSize(lower_bound)
+        crop_filter.SetUpperBoundaryCropSize(upper_bound)
+        image = crop_filter.Execute(image)
 
-    return padded_image
+    return image
 
 
 def process_folder(input_dir, output_dir, target_spacing, mode='cbct'):
@@ -66,8 +102,8 @@ def process_folder(input_dir, output_dir, target_spacing, mode='cbct'):
                 int(np.round(original_size[2] * (original_spacing[2] / target_spacing[2])))
             ]
 
-            # image = resample_image(image, target_spacing, new_size)
-            # image = pad_image(image, [400, 400, 0])
+            image = resample_image(image, target_spacing, new_size)
+            image = pad_or_crop_image(image, [512, 512, 0])
 
             # image.SetOrigin((0, 0, 0))
 
@@ -115,12 +151,13 @@ def transfer_folder():
     input_dir2 = r"D:\Data\CBCT2CT2\CBCT"
     output_dir = r"D:\Data\CBCT2CT2\Data"
 
-    target_spacing = [1.5, 1.5, 2.5]
+    target_spacing = [0.8, 0.8, 2.]
+    target_spacing2 = [0.8, 0.8, 1.1]
 
     remove_and_create_dir(output_dir)
 
     process_folder(input_dir, output_dir, target_spacing, mode='ct')
-    process_folder(input_dir2, output_dir, target_spacing, mode='cbct')
+    process_folder(input_dir2, output_dir, target_spacing2, mode='cbct')
 
 
 if __name__ == '__main__':

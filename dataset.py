@@ -119,7 +119,7 @@ def test_npy_dataset():
 
         plt.show()
 
-    for i in range(3):
+    for i in range(5):
         sample = dataset[i]
         plot_sample(sample)
 

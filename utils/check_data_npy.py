@@ -55,7 +55,7 @@ def normalize_to_range(data):
     data = np.clip(data, -1000, data_max)
     data_min, data_max2 = np.min(data), np.max(data)
     # print(data_min, data_max)
-    data = (data - data_min) / (data_max - data_min + 1e-8)
+    # data = (data - data_min) / (data_max - data_min + 1e-8)
     return data
 
 
