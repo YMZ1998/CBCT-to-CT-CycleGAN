@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
     parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--log', action='store_true', default=True, help='log')
     opt = parser.parse_args()
     print(opt)
 
@@ -109,8 +110,8 @@ if __name__ == '__main__':
 
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 
-    # Loss plot
-    logger = Logger(opt.n_epochs, len(dataloader))
+    if opt.log:
+        logger = Logger(opt.n_epochs, len(dataloader))
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
@@ -195,12 +196,12 @@ if __name__ == '__main__':
             loss_D_B.backward()
 
             optimizer_D_B.step()
-
-            # # Progress report (http://localhost:8097)
-            logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B),
-                        'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
-                        'loss_G_cycle': (loss_cycle_ABA + loss_cycle_BAB), 'loss_D': (loss_D_A + loss_D_B)},
-                       images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
+            if opt.log:
+                # Progress report (http://localhost:8097)
+                logger.log({'loss_G': loss_G, 'loss_G_identity': (loss_identity_A + loss_identity_B),
+                            'loss_G_GAN': (loss_GAN_A2B + loss_GAN_B2A),
+                            'loss_G_cycle': (loss_cycle_ABA + loss_cycle_BAB), 'loss_D': (loss_D_A + loss_D_B)},
+                           images={'real_A': real_A, 'real_B': real_B, 'fake_A': fake_A, 'fake_B': fake_B})
 
         # Update learning rates
         lr_scheduler_G.step()

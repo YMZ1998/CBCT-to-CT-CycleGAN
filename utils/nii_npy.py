@@ -6,6 +6,7 @@ import SimpleITK as sitk
 import numpy as np
 import tqdm
 from matplotlib import pyplot as plt
+from skimage.transform import resize
 
 
 def pad_image(image, target_size=(256, 256)):
@@ -56,6 +57,9 @@ def resample_image(image, target_size=(256, 256)):
 
     return resampled_image
 
+def resize_image(image, target_size=(256, 256)):
+    resized_image = resize(image, target_size, mode='constant', preserve_range=True)
+    return resized_image.astype(np.int16)
 
 def save_images(file_path, ct, cbct):
     ct_dir = os.path.join(file_path, 'ct')
@@ -68,14 +72,14 @@ def save_images(file_path, ct, cbct):
         if np.unique(ct[i]).size == 1:
             continue
         ct_img = normalize_to_uint8(ct[i])
-
+        ct_img = resize_image(ct_img, target_size=(256, 256))
         np.save(os.path.join(ct_dir, f"{i}.npy"), ct_img)
 
     for i in range(len(cbct)):
         if np.unique(cbct[i]).size == 1:
             continue
         cbct_img = normalize_to_uint8(cbct[i])
-
+        cbct_img = resize_image(cbct_img, target_size=(256, 256))
         np.save(os.path.join(cbct_dir, f"{i}.npy"), cbct_img)
 
 
@@ -106,7 +110,7 @@ def load_images(file_path):
         return None, None, None
 
 
-def transfer_folder(path_in, path_out, target_size=(512, 512)):
+def transfer_folder(path_in, path_out, target_size=(256, 256)):
     if os.path.exists(path_out):
         shutil.rmtree(path_out)
     os.makedirs(path_out, exist_ok=True)
@@ -127,8 +131,8 @@ def transfer_folder(path_in, path_out, target_size=(512, 512)):
         # cbct_image = pad_image(cbct_image, target_size=target_size)
         # mask_padded = pad_image(mask_image, target_size=target_size)
 
-        # ct_image = resample_image(ct_image, target_size=target_size)
-        # cbct_image = resample_image(cbct_image, target_size=target_size)
+        ct_image = resample_image(ct_image, target_size=target_size)
+        cbct_image = resample_image(cbct_image, target_size=target_size)
         # print(ct_resampled.GetSize(), cbct_resampled.GetSize())
         # mask_resampled = resample_image(mask_padded, target_size=target_size)
 
