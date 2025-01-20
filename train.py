@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-    parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
+    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
@@ -107,7 +107,6 @@ if __name__ == '__main__':
                    transforms.Normalize([0.5], [0.5])]
     dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True, anatomy=opt.anatomy)
 
-
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 
     if opt.log:
@@ -128,29 +127,33 @@ if __name__ == '__main__':
             ###### Generators A2B and B2A ######
             optimizer_G.zero_grad()
 
+            lambda_identity = 5.0  # Identity Loss 权重
+            lambda_GAN = 0.5  # GAN Loss 权重
+            lambda_cycle = 10.0  # Cycle Loss 权重
+
             # Identity loss
             # G_A2B(B) should equal B if real B is fed
             same_B = netG_A2B(real_B)
-            loss_identity_B = criterion_identity(same_B, real_B) * 5.0
+            loss_identity_B = criterion_identity(same_B, real_B) * lambda_identity
             # G_B2A(A) should equal A if real A is fed
             same_A = netG_B2A(real_A)
-            loss_identity_A = criterion_identity(same_A, real_A) * 5.0
+            loss_identity_A = criterion_identity(same_A, real_A) * lambda_identity
 
             # GAN loss
             fake_B = netG_A2B(real_A)
             pred_fake = netD_B(fake_B)
-            loss_GAN_A2B = criterion_GAN(pred_fake, target_real)
+            loss_GAN_A2B = criterion_GAN(pred_fake, target_real) * lambda_GAN
 
             fake_A = netG_B2A(real_B)
             pred_fake = netD_A(fake_A)
-            loss_GAN_B2A = criterion_GAN(pred_fake, target_real)
+            loss_GAN_B2A = criterion_GAN(pred_fake, target_real) * lambda_GAN
 
             # Cycle loss
             recovered_A = netG_B2A(fake_B)
-            loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * 10.0
+            loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * lambda_cycle
 
             recovered_B = netG_A2B(fake_A)
-            loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * 10.0
+            loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
 
             # Total loss
             loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
