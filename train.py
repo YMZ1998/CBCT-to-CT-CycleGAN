@@ -55,10 +55,10 @@ if __name__ == '__main__':
         netD_A.cuda()
         netD_B.cuda()
 
-    netG_A2B.apply(weights_init_normal)
-    netG_B2A.apply(weights_init_normal)
-    netD_A.apply(weights_init_normal)
-    netD_B.apply(weights_init_normal)
+    # netG_A2B.apply(weights_init_normal)
+    # netG_B2A.apply(weights_init_normal)
+    # netD_A.apply(weights_init_normal)
+    # netD_B.apply(weights_init_normal)
 
     if opt.resume:
         # Load state dicts

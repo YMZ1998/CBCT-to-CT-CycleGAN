@@ -54,15 +54,18 @@ class Logger():
         batches_left = self.batches_epoch * (self.n_epochs - self.epoch) + self.batches_epoch - self.batch
         sys.stdout.write('ETA: %s' % (datetime.timedelta(seconds=batches_left * self.mean_period / batches_done)))
 
+        image_size = 512
+
         # Draw images
         if (self.batch % 10) == 0:
             for image_name, tensor in images.items():
                 if image_name not in self.image_windows:
                     self.image_windows[image_name] = self.viz.image(tensor2image(tensor.data),
-                                                                    opts={'title': image_name})
+                                                                    opts={'title': image_name, 'width': image_size,
+                                                                          'height': image_size})
                 else:
                     self.viz.image(tensor2image(tensor.data), win=self.image_windows[image_name],
-                                   opts={'title': image_name})
+                                   opts={'title': image_name, 'width': image_size, 'height': image_size})
 
         # End of epoch
         if (self.batch % self.batches_epoch) == 0:
@@ -143,6 +146,7 @@ def remove_and_create_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
+
 
 def normalize(data, anatomy='pelvis'):
     if anatomy == 'pelvis':

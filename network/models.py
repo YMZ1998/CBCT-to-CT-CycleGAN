@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 
 
-def init_weights(net, init_type='normal', init_gain=0.02):
+def init_weights(net, init_type='xavier', init_gain=0.02):
     """Initialize network weights.
 
     Parameters:
@@ -22,7 +22,7 @@ def init_weights(net, init_type='normal', init_gain=0.02):
             if init_type == 'normal':
                 init.normal_(m.weight.data, 0.0, init_gain)
             elif init_type == 'xavier':
-                init.xavier_normal_(m.weight.data, gain=init_gain)
+                init.xavier_normal_(m.weight.data, gain=1.0)
             elif init_type == 'kaiming':
                 init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
             elif init_type == 'orthogonal':
@@ -31,10 +31,12 @@ def init_weights(net, init_type='normal', init_gain=0.02):
                 raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
             if hasattr(m, 'bias') and m.bias is not None:
                 init.constant_(m.bias.data, 0.0)
-        elif classname.find(
-            'BatchNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
-            init.normal_(m.weight.data, 1.0, init_gain)
-            init.constant_(m.bias.data, 0.0)
+        elif classname.find('BatchNorm2d') != -1 or classname.find(
+            'InstanceNorm2d') != -1:  # BatchNorm Layer's weight is not a matrix; only normal distribution applies.
+            if hasattr(m, 'weight') and m.weight is not None:
+                init.normal_(m.weight.data, 1.0, init_gain)
+            if hasattr(m, 'bias') and m.bias is not None:
+                init.constant_(m.bias.data, 0.0)
 
     print('initialize network with %s' % init_type)
     net.apply(init_func)  # apply the initialization function <init_func>
@@ -56,22 +58,6 @@ class ResidualBlock(nn.Module):
 
     def forward(self, x):
         return x + self.conv_block(x)
-
-
-class UpConv(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super(UpConv, self).__init__()
-        self.conv = nn.Sequential(
-            # nn.ConvTranspose2d(in_ch, out_ch, kernel_size=3, stride=2, padding=1, output_padding=1, bias=False),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, stride=1, padding=1, bias=False),
-            # nn.ConvTranspose2d(in_ch, out_ch, kernel_size=2, stride=2, padding=0, output_padding=0, bias=False),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
-        )
-
-    def forward(self, x):
-        return self.conv(x)
 
 
 class Generator(nn.Module):
@@ -117,7 +103,7 @@ class Generator(nn.Module):
 
         self.model = nn.Sequential(*model)
 
-        init_weights(self, 'normal', 0.02)
+        init_weights(self)
 
     def forward(self, x):
         return self.model(x)
@@ -149,7 +135,7 @@ class Discriminator(nn.Module):
 
         self.model = nn.Sequential(*model)
 
-        init_weights(self, 'normal', 0.02)
+        init_weights(self)
 
     def forward(self, x):
         x = self.model(x)
@@ -160,7 +146,6 @@ class Discriminator(nn.Module):
 if __name__ == '__main__':
     # Create a network instance with 'xavier' initialization
     net = Generator(1, 1)
-    # init_weights(net, 'kaiming')
 
     # Print initialized weights
     for name, param in net.named_parameters():
