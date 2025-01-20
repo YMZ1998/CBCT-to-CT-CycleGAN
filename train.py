@@ -73,6 +73,7 @@ if __name__ == '__main__':
 
     # Lossess
     criterion_GAN = torch.nn.MSELoss()
+    # criterion_GAN = torch.nn.BCEWithLogitsLoss()
     criterion_cycle = torch.nn.L1Loss()
     criterion_identity = torch.nn.L1Loss()
 

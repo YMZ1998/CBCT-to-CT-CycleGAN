@@ -144,7 +144,8 @@ class Discriminator(nn.Module):
                   nn.LeakyReLU(0.2, inplace=True)]
 
         # FCN classification layer
-        model += [nn.Conv2d(512, 1, 4, padding=1)]
+        model += [nn.Conv2d(512, 1, 4, padding=1),
+                  nn.Sigmoid()]
 
         self.model = nn.Sequential(*model)
 
