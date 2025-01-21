@@ -37,7 +37,7 @@ def export_to_onnx():
 
     onnx_file_name = str(os.path.join(opt.model_path, opt.anatomy, "cbct2ct.onnx"))
 
-    torch.onnx.export(netG_A2B, x, onnx_file_name,
+    torch.onnx.export(netG_A2B, x, onnx_file_name, opset_version=11,
                       input_names=["input"], output_names=["output"],
                       verbose=False)
     print(f"Model saved as ONNX to {onnx_file_name}.")

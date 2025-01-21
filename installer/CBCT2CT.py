@@ -42,7 +42,7 @@ def save_array_as_nii(array, file_path, reference=None):
 
 def img_normalize(img, anatomy):
     if anatomy == 'pelvis':
-        img = np.clip(img, -1000, 1000)
+        img = np.clip(img, -1000, 2000)
     elif anatomy == 'brain':
         img = np.clip(img, -1000, 2000)
     min_value = np.min(img)
@@ -193,8 +193,8 @@ if __name__ == '__main__':
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='brain', help="The anatomy type")
-    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis.nii.gz', help="Path to cbct file")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_2/cbct.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis4.nii.gz', help="Path to cbct file")
+    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_3/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
     parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")

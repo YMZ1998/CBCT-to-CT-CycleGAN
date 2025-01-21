@@ -12,7 +12,8 @@ from tqdm import tqdm
 
 from dataset import NpyDataset
 from network.models import Generator, Discriminator
-from utils.utils import ReplayBuffer, LambdaLR, Logger, weights_init_normal
+from utils.losses import CycleLoss
+from utils.utils import ReplayBuffer, LambdaLR, Logger
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -21,8 +22,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=100,
+    parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
+    parser.add_argument('--decay_epoch', type=int, default=1,
                         help='epoch to start linearly decaying the learning rate to 0')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
     parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
@@ -30,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
     parser.add_argument('--log', action='store_true', default=True, help='log')
     opt = parser.parse_args()
     print(opt)
@@ -61,6 +62,7 @@ if __name__ == '__main__':
     # netD_B.apply(weights_init_normal)
 
     if opt.resume:
+        print('Resuming from previous checkpoint...')
         # Load state dicts
         netG_A2B.load_state_dict(
             torch.load(os.path.join(opt.model_path, 'netG_A2B.pth'), weights_only=False, map_location='cpu'))
@@ -73,9 +75,13 @@ if __name__ == '__main__':
 
     # Lossess
     criterion_GAN = torch.nn.MSELoss()
-    # criterion_GAN = torch.nn.BCEWithLogitsLoss()
-    criterion_cycle = torch.nn.L1Loss()
+    # criterion_cycle = torch.nn.L1Loss()
+    criterion_cycle = CycleLoss(proportion_ssim=0.5)
     criterion_identity = torch.nn.L1Loss()
+
+    lambda_GAN = 1  # GAN Loss 权重
+    lambda_cycle = 10.0  # Cycle Loss 权重
+    lambda_identity =2.0  # Identity Loss 权重
 
     # Optimizers & LR schedulers
     optimizer_G = torch.optim.Adam(itertools.chain(netG_A2B.parameters(), netG_B2A.parameters()),
@@ -84,11 +90,11 @@ if __name__ == '__main__':
     optimizer_D_B = torch.optim.Adam(netD_B.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
     lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                       opt.decay_epoch).step)
+                                                                                       opt.decay_epoch).step, verbose=True)
     lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                           opt.decay_epoch).step)
+                                                                                           opt.decay_epoch).step, verbose=True)
     lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                           opt.decay_epoch).step)
+                                                                                           opt.decay_epoch).step, verbose=True)
 
     device = torch.device('cuda' if opt.cuda else 'cpu')
 
@@ -127,10 +133,6 @@ if __name__ == '__main__':
 
             ###### Generators A2B and B2A ######
             optimizer_G.zero_grad()
-
-            lambda_identity = 5.0  # Identity Loss 权重
-            lambda_GAN = 0.5  # GAN Loss 权重
-            lambda_cycle = 10.0  # Cycle Loss 权重
 
             # Identity loss
             # G_A2B(B) should equal B if real B is fed

@@ -131,7 +131,8 @@ class Discriminator(nn.Module):
 
         # FCN classification layer
         model += [nn.Conv2d(512, 1, 4, padding=1),
-                  nn.Sigmoid()]
+                  nn.Sigmoid()
+                  ]
 
         self.model = nn.Sequential(*model)
 

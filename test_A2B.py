@@ -18,8 +18,8 @@ from network.models import Generator
 
 
 def normalize(data):
-    data = np.clip(data, -1000, 1000)
-    data_min, data_max = -1000, 1000
+    data_min, data_max = -1000, 2000
+    data = np.clip(data, data_min, data_max)
     # data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
 
@@ -89,8 +89,8 @@ def test_a2b(input_path, output_path):
 
     netG_A2B.eval()
 
-    Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-    input_A = Tensor(opt.batch_size, opt.input_nc, opt.size, opt.size)
+    device = torch.device("cuda" if opt.cuda else "cpu")
+    input_A = torch.zeros((opt.batch_size, opt.input_nc, opt.size, opt.size), dtype=torch.float32, device=device)
 
     transforms_ = [transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
@@ -101,23 +101,17 @@ def test_a2b(input_path, output_path):
     # remove_and_create_dir('output/B')
 
     data_loader_test = tqdm(dataloader, file=sys.stdout)
-    i = 0
-    for batch in data_loader_test:
-        i = i + 1
-        real_A = Variable(input_A.copy_(batch['A']))
+    with torch.no_grad():
+        for i, batch in enumerate(data_loader_test):
+            real_A = input_A.copy_(batch['A'])
 
-        fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
+            fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
 
-        save_image((real_A + 1.0) * 0.5, os.path.join(output_path, f"{i:04d}_A.png"))
-        save_image(fake_B, os.path.join(output_path, f"{i:04d}_B.png"))
-
-        sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
-
-    sys.stdout.write('\n')
-
+            save_image((real_A + 1.0) * 0.5, os.path.join(output_path, f"{i:04d}_A.png"))
+            save_image(fake_B, os.path.join(output_path, f"{i:04d}_B.png"))
 
 if __name__ == '__main__':
-    input_path = r'./test_data/pelvis'
+    input_path = r'./datasets/pelvis/test/A'
     output_path = r'./test_data/result'
     # output_path = r'output/B'
     test_a2b(input_path, output_path)
