@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from dataset import NpyDataset
 from network.models import Generator, Discriminator
+from network.unet import PatchGANDiscriminator, UNetGenerator
 from utils.losses import CycleLoss
 from utils.utils import ReplayBuffer, LambdaLR, Logger
 
@@ -45,10 +46,10 @@ if __name__ == '__main__':
 
     ###### Definition of variables ######
     # Networks
-    netG_A2B = Generator(opt.input_nc, opt.output_nc)
-    netG_B2A = Generator(opt.output_nc, opt.input_nc)
-    netD_A = Discriminator(opt.input_nc)
-    netD_B = Discriminator(opt.output_nc)
+    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc)
+    netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc)
+    netD_A = PatchGANDiscriminator(opt.input_nc)
+    netD_B = PatchGANDiscriminator(opt.output_nc)
 
     if opt.cuda:
         netG_A2B.cuda()
@@ -101,8 +102,8 @@ if __name__ == '__main__':
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_real = torch.full((opt.batch_size, 1), 1.0, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batch_size, 1), 0.0, device=device, dtype=torch.float32)
+    target_real = torch.full((opt.batch_size, 1, 30, 30), 1.0, device=device, dtype=torch.float32)
+    target_fake = torch.full((opt.batch_size, 1, 30, 30), 0.0, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
@@ -145,6 +146,7 @@ if __name__ == '__main__':
             # GAN loss
             fake_B = netG_A2B(real_A)
             pred_fake = netD_B(fake_B)
+            # print(pred_fake.shape, target_real.shape)
             loss_GAN_A2B = criterion_GAN(pred_fake, target_real) * lambda_GAN
 
             fake_A = netG_B2A(real_B)

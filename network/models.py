@@ -146,8 +146,11 @@ class Discriminator(nn.Module):
 
 if __name__ == '__main__':
     # Create a network instance with 'xavier' initialization
-    net = Generator(1, 1)
+    # net = Generator(1, 1).to('cuda')
+    net = Discriminator(1).to('cuda')
 
     # Print initialized weights
-    for name, param in net.named_parameters():
-        print(name, param.data)
+    # for name, param in net.named_parameters():
+    #     print(name, param.data)
+    from torchsummary import summary
+    summary(net, input_size=(1, 256, 256))
