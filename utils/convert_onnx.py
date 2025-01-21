@@ -6,6 +6,7 @@ import onnx
 import onnxruntime
 import torch
 from network.models import Generator
+from network.unet import UNetGenerator
 
 
 def to_numpy(tensor):
@@ -25,7 +26,7 @@ def export_to_onnx():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    netG_A2B = Generator(opt.input_nc, opt.output_nc)
+    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc)
     netG_A2B.to(device)
     weights_A2B = str(os.path.join(opt.model_path, opt.anatomy, 'netG_A2B.pth'))
     netG_A2B.load_state_dict(torch.load(weights_A2B, weights_only=False, map_location='cpu'))

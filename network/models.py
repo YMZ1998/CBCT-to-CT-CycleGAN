@@ -140,6 +140,7 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         x = self.model(x)
+        print(F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1).shape)
         # Average pooling and flatten
         return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
 

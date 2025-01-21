@@ -13,8 +13,9 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 from tqdm import tqdm
-
+from skimage.metrics import structural_similarity as ssim
 from network.models import Generator
+from network.unet import UNetGenerator
 
 
 def normalize(data):
@@ -27,7 +28,7 @@ def normalize(data):
 class NpyDataset(Dataset):
     def __init__(self, folder, transforms_=None):
         self.transform = transforms.Compose(transforms_)
-        self.files_A = sorted(glob.glob(os.path.join(folder, '*.*')))
+        self.files_A = sorted(glob.glob(os.path.join(folder, '*.*')))[:100]
 
     def __getitem__(self, index):
         item_A = np.load(self.files_A[index % len(self.files_A)]).astype(np.float32)
@@ -68,50 +69,58 @@ def test_a2b(input_path, output_path):
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-    parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
-    parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
 
     opt = parser.parse_args()
     print(opt)
 
-    if torch.cuda.is_available() and not opt.cuda:
-        print("WARNING: You have a CUDA device, so you should probably run with --cuda")
-
-    netG_A2B = Generator(opt.input_nc, opt.output_nc)
-
-    if opt.cuda:
-        netG_A2B.cuda()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc).to(device)
 
     weights_A2B = str(os.path.join(opt.model_path, opt.anatomy, 'netG_A2B.pth'))
     netG_A2B.load_state_dict(torch.load(weights_A2B, weights_only=False, map_location='cpu'))
 
     netG_A2B.eval()
 
-    device = torch.device("cuda" if opt.cuda else "cpu")
     input_A = torch.zeros((opt.batch_size, opt.input_nc, opt.size, opt.size), dtype=torch.float32, device=device)
 
     transforms_ = [transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataloader = DataLoader(NpyDataset(input_path, transforms_=transforms_),
-                            batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
+                            batch_size=opt.batch_size, shuffle=False, num_workers=8)
 
     remove_and_create_dir(output_path)
-    # remove_and_create_dir('output/B')
 
     data_loader_test = tqdm(dataloader, file=sys.stdout)
     with torch.no_grad():
+        total_ssim = 0.0
         for i, batch in enumerate(data_loader_test):
             real_A = input_A.copy_(batch['A'])
-
             fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
+            real_A_normalized = (real_A + 1.0) * 0.5
 
-            save_image((real_A + 1.0) * 0.5, os.path.join(output_path, f"{i:04d}_A.png"))
+            real_A_np = real_A_normalized.squeeze().cpu().numpy()  # 形状: [H, W] 或 [C, H, W]
+            fake_B_np = fake_B.squeeze().cpu().numpy()
+
+            if real_A_np.ndim == 3:
+                ssim_value = 0.0
+                for c in range(real_A_np.shape[0]):
+                    ssim_value += ssim(real_A_np[c], fake_B_np[c], data_range=1.0)
+                ssim_value /= real_A_np.shape[0]
+            else:
+                ssim_value = ssim(real_A_np, fake_B_np, data_range=1.0)
+
+            total_ssim += ssim_value
+
+            save_image(real_A_normalized, os.path.join(output_path, f"{i:04d}_A.png"))
             save_image(fake_B, os.path.join(output_path, f"{i:04d}_B.png"))
+
+        avg_ssim = total_ssim / len(data_loader_test)
+        print(f"Average SSIM: {avg_ssim:.4f}")
+
 
 if __name__ == '__main__':
     input_path = r'./datasets/pelvis/test/A'
     output_path = r'./test_data/result'
-    # output_path = r'output/B'
     test_a2b(input_path, output_path)

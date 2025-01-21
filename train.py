@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
-    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
+    parser.add_argument('--batch_size', type=int, default=2, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
@@ -41,21 +41,14 @@ if __name__ == '__main__':
     opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy))
     os.makedirs(opt.model_path, exist_ok=True)
 
-    if torch.cuda.is_available() and not opt.cuda:
-        print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     ###### Definition of variables ######
     # Networks
-    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc)
-    netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc)
-    netD_A = PatchGANDiscriminator(opt.input_nc)
-    netD_B = PatchGANDiscriminator(opt.output_nc)
-
-    if opt.cuda:
-        netG_A2B.cuda()
-        netG_B2A.cuda()
-        netD_A.cuda()
-        netD_B.cuda()
+    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc).to(device)
+    netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc).to(device)
+    netD_A = PatchGANDiscriminator(opt.input_nc).to(device)
+    netD_B = PatchGANDiscriminator(opt.output_nc).to(device)
 
     # netG_A2B.apply(weights_init_normal)
     # netG_B2A.apply(weights_init_normal)
@@ -77,7 +70,7 @@ if __name__ == '__main__':
     # Lossess
     criterion_GAN = torch.nn.MSELoss()
     # criterion_cycle = torch.nn.L1Loss()
-    criterion_cycle = CycleLoss(proportion_ssim=0.5)
+    criterion_cycle = CycleLoss(proportion_ssim=0.3)
     criterion_identity = torch.nn.L1Loss()
 
     lambda_GAN = 1.0  # GAN Loss 权重
@@ -97,13 +90,11 @@ if __name__ == '__main__':
     lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
                                                                                            opt.decay_epoch).step)
 
-    device = torch.device('cuda' if opt.cuda else 'cpu')
-
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_real = torch.full((opt.batch_size, 1, 30, 30), 1.0, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batch_size, 1, 30, 30), 0.0, device=device, dtype=torch.float32)
+    target_real = torch.full((opt.batch_size, 1), 1.0, device=device, dtype=torch.float32)
+    target_fake = torch.full((opt.batch_size, 1), 0.0, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()

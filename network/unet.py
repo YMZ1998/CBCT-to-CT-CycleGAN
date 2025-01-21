@@ -75,6 +75,7 @@ class UNetSkipConnectionBlock(nn.Module):
         else:
             return torch.cat([x, self.model(x)], 1)
 
+
 class PatchGANDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3):
         super(PatchGANDiscriminator, self).__init__()
@@ -113,7 +114,7 @@ class PatchGANDiscriminator(nn.Module):
 
     def forward(self, x):
         x = self.model(x)
-        return x
+        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
 
 
 class SpectralNormDiscriminator(nn.Module):
@@ -152,4 +153,5 @@ if __name__ == '__main__':
     #     print(name, param.data)
 
     from torchsummary import summary
+
     summary(net, input_size=(1, 256, 256))
