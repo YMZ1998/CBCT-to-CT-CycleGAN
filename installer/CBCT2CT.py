@@ -192,7 +192,7 @@ if __name__ == '__main__':
         usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='brain', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
     parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis4.nii.gz', help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_3/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")

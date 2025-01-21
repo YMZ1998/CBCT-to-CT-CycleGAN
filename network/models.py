@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 
 
-def init_weights(net, init_type='xavier', init_gain=0.02):
+def init_weights(net, init_type='normal', init_gain=0.02):
     """Initialize network weights.
 
     Parameters:
@@ -22,7 +22,7 @@ def init_weights(net, init_type='xavier', init_gain=0.02):
             if init_type == 'normal':
                 init.normal_(m.weight.data, 0.0, init_gain)
             elif init_type == 'xavier':
-                init.xavier_normal_(m.weight.data, gain=1.0)
+                init.xavier_normal_(m.weight.data, gain=init_gain)
             elif init_type == 'kaiming':
                 init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
             elif init_type == 'orthogonal':

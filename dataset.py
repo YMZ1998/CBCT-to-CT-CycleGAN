@@ -6,6 +6,7 @@ import numpy as np
 import torchvision.transforms as transforms
 from PIL import Image
 from matplotlib import pyplot as plt
+from sympy.core.random import shuffle
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -29,8 +30,10 @@ class NpyDataset(Dataset):
         self.unaligned = unaligned
         self.anatomy = anatomy
 
-        self.files_A = sorted(glob.glob(os.path.join(root, '%s/A' % mode, '*.npy')))
-        self.files_B = sorted(glob.glob(os.path.join(root, '%s/B' % mode, '*.npy')))
+        self.files_A = sorted(glob.glob(os.path.join(root, '%s/A' % mode, '*.npy')))[:2000]
+        self.files_B = sorted(glob.glob(os.path.join(root, '%s/B' % mode, '*.npy')))[:2000]
+        shuffle(self.files_A)
+        shuffle(self.files_B)
 
     def __getitem__(self, index):
         item_A = np.load(self.files_A[index % len(self.files_A)]).astype(np.float32)

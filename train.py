@@ -22,8 +22,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=1,
+    parser.add_argument('--lr', type=float, default=0.0002, help='initial learning rate')
+    parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
     parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=True, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
     parser.add_argument('--log', action='store_true', default=True, help='log')
     opt = parser.parse_args()
     print(opt)
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     lambda_GAN = 1  # GAN Loss 权重
     lambda_cycle = 10.0  # Cycle Loss 权重
-    lambda_identity =2.0  # Identity Loss 权重
+    lambda_identity = 2.0  # Identity Loss 权重
 
     # Optimizers & LR schedulers
     optimizer_G = torch.optim.Adam(itertools.chain(netG_A2B.parameters(), netG_B2A.parameters()),
@@ -90,11 +90,11 @@ if __name__ == '__main__':
     optimizer_D_B = torch.optim.Adam(netD_B.parameters(), lr=opt.lr, betas=(0.5, 0.999))
 
     lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                       opt.decay_epoch).step, verbose=True)
+                                                                                       opt.decay_epoch).step)
     lr_scheduler_D_A = torch.optim.lr_scheduler.LambdaLR(optimizer_D_A, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                           opt.decay_epoch).step, verbose=True)
+                                                                                           opt.decay_epoch).step)
     lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
-                                                                                           opt.decay_epoch).step, verbose=True)
+                                                                                           opt.decay_epoch).step)
 
     device = torch.device('cuda' if opt.cuda else 'cpu')
 
@@ -213,6 +213,8 @@ if __name__ == '__main__':
         lr_scheduler_G.step()
         lr_scheduler_D_A.step()
         lr_scheduler_D_B.step()
+
+        print(f"Generator LR: {lr_scheduler_G.get_last_lr()[0]:.6f}")
 
         # Save models checkpoints
         torch.save(netG_A2B.state_dict(), os.path.join(opt.model_path, 'netG_A2B.pth'))
