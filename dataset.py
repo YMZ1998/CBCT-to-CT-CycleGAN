@@ -30,8 +30,8 @@ class NpyDataset(Dataset):
         self.unaligned = unaligned
         self.anatomy = anatomy
 
-        self.files_A = sorted(glob.glob(os.path.join(root, '%s/A' % mode, '*.npy')))[:2000]
-        self.files_B = sorted(glob.glob(os.path.join(root, '%s/B' % mode, '*.npy')))[:2000]
+        self.files_A = sorted(glob.glob(os.path.join(root, '%s/A' % mode, '*.npy')))[:]
+        self.files_B = sorted(glob.glob(os.path.join(root, '%s/B' % mode, '*.npy')))[:]
         shuffle(self.files_A)
         shuffle(self.files_B)
 

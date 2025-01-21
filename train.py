@@ -153,6 +153,7 @@ if __name__ == '__main__':
 
             # Total loss
             loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
+            # print( f"loss: {loss_G.item():.4f},  {(loss_identity_A + loss_identity_B).item():.4f},{(loss_GAN_A2B + loss_GAN_B2A).item():.4f}")
             loss_G.backward()
 
             train_losses.append(loss_G.item())
