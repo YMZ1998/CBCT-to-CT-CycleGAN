@@ -172,6 +172,7 @@ class CycleLoss:
             # https://github.com/VainF/pytorch-msssim#2-normalized-input
             ssim_real = (real + 1) / 2
             ssim_reconstructed = (reconstructed + 1) / 2
+            # print(ssim_real.min(), ssim_real.max(), ssim_reconstructed.min(), ssim_reconstructed.max())
 
             # SSIM criterion returns distance metric
             cycle_loss_ssim = self.ssim_criterion(ssim_reconstructed, ssim_real, data_range=1)

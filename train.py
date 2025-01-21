@@ -79,7 +79,7 @@ if __name__ == '__main__':
     criterion_cycle = CycleLoss(proportion_ssim=0.5)
     criterion_identity = torch.nn.L1Loss()
 
-    lambda_GAN = 1  # GAN Loss 权重
+    lambda_GAN = 1.0  # GAN Loss 权重
     lambda_cycle = 10.0  # Cycle Loss 权重
     lambda_identity = 2.0  # Identity Loss 权重
 
