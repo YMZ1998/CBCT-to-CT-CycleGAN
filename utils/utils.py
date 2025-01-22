@@ -37,7 +37,8 @@ class Logger():
         self.prev_time = time.time()
         if (self.batch % self.batches_epoch) == 0:
             # print(self.batch , self.batches_epoch)
-            sys.stdout.write('\rEpoch %03d/%03d [%04d/%04d] -- ' % (self.epoch, self.n_epochs, self.batch, self.batches_epoch))
+            sys.stdout.write(
+                '\rEpoch %03d/%03d [%04d/%04d] -- ' % (self.epoch, self.n_epochs, self.batch, self.batches_epoch))
 
         for i, loss_name in enumerate(losses.keys()):
             if loss_name not in self.losses:
@@ -92,7 +93,7 @@ class Logger():
 
 
 class ReplayBuffer():
-    def __init__(self, max_size=50):
+    def __init__(self, max_size=1000):
         assert (max_size > 0), 'Empty buffer or trying to create a black hole. Be careful.'
         self.max_size = max_size
         self.data = []
