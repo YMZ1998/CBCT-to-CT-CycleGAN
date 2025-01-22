@@ -93,8 +93,8 @@ if __name__ == '__main__':
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_real = torch.full((opt.batch_size, 1), 0.9, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batch_size, 1), 0.1, device=device, dtype=torch.float32)
+    target_real = torch.full((opt.batch_size, 1, 30, 30), 0.9, device=device, dtype=torch.float32)
+    target_fake = torch.full((opt.batch_size, 1, 30, 30), 0.1, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()

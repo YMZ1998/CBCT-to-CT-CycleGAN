@@ -114,7 +114,7 @@ class PatchGANDiscriminator(nn.Module):
 
     def forward(self, x):
         x = self.model(x)
-        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        return x
 
 
 class SpectralNormDiscriminator(nn.Module):
@@ -142,7 +142,7 @@ class SpectralNormDiscriminator(nn.Module):
 
     def forward(self, x):
         x = self.model(x)
-        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
+        return x
 
 
 if __name__ == '__main__':
