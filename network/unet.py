@@ -141,13 +141,14 @@ class SpectralNormDiscriminator(nn.Module):
         )
 
     def forward(self, x):
-        return self.model(x)
+        x = self.model(x)
+        return F.avg_pool2d(x, x.size()[2:]).view(x.size()[0], -1)
 
 
 if __name__ == '__main__':
     # Create a U-Net generator instance with 'xavier' initialization
     # net = UNetGenerator(input_nc=1, output_nc=1).to('cuda')
-    net = PatchGANDiscriminator(input_nc=1).to('cuda')
+    net = SpectralNormDiscriminator(input_nc=1).to('cuda')
     # Print initialized weights
     # for name, param in net.named_parameters():
     #     print(name, param.data)
