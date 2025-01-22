@@ -36,6 +36,7 @@ class Logger():
         self.mean_period += (time.time() - self.prev_time)
         self.prev_time = time.time()
         if (self.batch % self.batches_epoch) == 0:
+            print(self.batch , self.batches_epoch)
             sys.stdout.write('\rEpoch %03d/%03d [%04d/%04d] -- ' % (self.epoch, self.n_epochs, self.batch, self.batches_epoch))
 
         for i, loss_name in enumerate(losses.keys()):
@@ -44,10 +45,11 @@ class Logger():
             else:
                 self.losses[loss_name] += losses[loss_name].item()
 
-            if (i + 1) == len(losses.keys()):
-                sys.stdout.write('%s: %.4f -- ' % (loss_name, self.losses[loss_name] / self.batch))
-            else:
-                sys.stdout.write('%s: %.4f | ' % (loss_name, self.losses[loss_name] / self.batch))
+            if (self.batch % self.batches_epoch) == 0:
+                if (i + 1) == len(losses.keys()):
+                    sys.stdout.write('%s: %.4f -- ' % (loss_name, self.losses[loss_name] / self.batch))
+                else:
+                    sys.stdout.write('%s: %.4f | ' % (loss_name, self.losses[loss_name] / self.batch))
 
         batches_done = self.batches_epoch * (self.epoch - 1) + self.batch
         batches_left = self.batches_epoch * (self.n_epochs - self.epoch) + self.batches_epoch - self.batch

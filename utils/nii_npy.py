@@ -68,6 +68,9 @@ def save_images(file_path, ct, cbct):
     os.makedirs(ct_dir, exist_ok=True)
     os.makedirs(cbct_dir, exist_ok=True)
 
+    ct = ct[15:-15]
+    cbct = cbct[10:-10]
+
     for i in range(len(ct)):
         if np.unique(ct[i]).size == 1:
             continue
