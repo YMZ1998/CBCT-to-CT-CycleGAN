@@ -95,6 +95,7 @@ def test_a2b(input_path, output_path):
     data_loader_test = tqdm(dataloader, file=sys.stdout)
     with torch.no_grad():
         total_ssim = 0.0
+        total_mae = 0.0
         for i, batch in enumerate(data_loader_test):
             real_A = input_A.copy_(batch['A'])
             fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
@@ -113,11 +114,20 @@ def test_a2b(input_path, output_path):
 
             total_ssim += ssim_value
 
+            if real_A_np.ndim == 3:
+                mae_value = torch.nn.functional.l1_loss(torch.tensor(real_A_np), torch.tensor(fake_B_np)).item()
+            else:
+                mae_value = torch.nn.functional.l1_loss(torch.tensor(real_A_np), torch.tensor(fake_B_np)).item()
+
+            total_mae += mae_value
+
             save_image(real_A_normalized, os.path.join(output_path, f"{i:04d}_A.png"))
             save_image(fake_B, os.path.join(output_path, f"{i:04d}_B.png"))
 
         avg_ssim = total_ssim / len(data_loader_test)
+        avg_mae = total_mae / len(data_loader_test)
         print(f"Average SSIM: {avg_ssim:.4f}")
+        print(f"Average MAE: {avg_mae:.4f}")
 
 
 if __name__ == '__main__':

@@ -80,8 +80,8 @@ if __name__ == '__main__':
     # Optimizers & LR schedulers
     optimizer_G = torch.optim.Adam(itertools.chain(netG_A2B.parameters(), netG_B2A.parameters()),
                                    lr=opt.lr, betas=(0.5, 0.999))
-    optimizer_D_A = torch.optim.Adam(netD_A.parameters(), lr=opt.lr * 4, betas=(0.5, 0.999))
-    optimizer_D_B = torch.optim.Adam(netD_B.parameters(), lr=opt.lr * 4, betas=(0.5, 0.999))
+    optimizer_D_A = torch.optim.Adam(netD_A.parameters(), lr=opt.lr * 2, betas=(0.5, 0.999))
+    optimizer_D_B = torch.optim.Adam(netD_B.parameters(), lr=opt.lr * 2, betas=(0.5, 0.999))
 
     lr_scheduler_G = torch.optim.lr_scheduler.LambdaLR(optimizer_G, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
                                                                                        opt.decay_epoch).step)
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         logger = Logger(opt.n_epochs, len(dataloader))
 
     # 设置判别器更新次数
-    n_critic = 3  # 判别器训练次数
+    n_critic = 2  # 判别器训练次数
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
@@ -212,6 +212,7 @@ if __name__ == '__main__':
         lr_scheduler_D_B.step()
 
         print(f"Generator LR: {lr_scheduler_G.get_last_lr()[0]:.6f}")
+        print(f"Discriminator LR: {lr_scheduler_D_A.get_last_lr()[0]:.6f}")
 
         # Save models checkpoints
         torch.save(netG_A2B.state_dict(), os.path.join(opt.model_path, 'netG_A2B.pth'))

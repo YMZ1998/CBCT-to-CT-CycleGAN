@@ -140,6 +140,8 @@ class SpectralNormDiscriminator(nn.Module):
             nn.utils.spectral_norm(nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=1, padding=1))
         )
 
+        init_weights(self)
+
     def forward(self, x):
         x = self.model(x)
         return x
