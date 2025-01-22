@@ -111,8 +111,8 @@ if __name__ == '__main__':
     if opt.log:
         logger = Logger(opt.n_epochs, len(dataloader))
 
-    # 设置判别器更新频率
-    update_discriminator_freq = 2
+    # 设置判别器更新次数
+    n_critic = 3  # 判别器训练次数
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
@@ -125,77 +125,79 @@ if __name__ == '__main__':
             input_A = real_A.detach().clone()
             input_B = real_B.detach().clone()
 
-            ###### Generators A2B and B2A ######
-            optimizer_G.zero_grad()
+            ###### Discriminator A ######
+            optimizer_D_A.zero_grad()
 
-            # Identity loss
-            same_B = netG_A2B(real_B)
-            loss_identity_B = criterion_identity(same_B, real_B) * lambda_identity
-            same_A = netG_B2A(real_A)
-            loss_identity_A = criterion_identity(same_A, real_A) * lambda_identity
+            # Real loss
+            pred_real = netD_A(real_A)
+            loss_D_real = criterion_GAN(pred_real, target_real)
 
-            # GAN loss
-            fake_B = netG_A2B(real_A)
-            pred_fake = netD_B(fake_B)
-            loss_GAN_A2B = criterion_GAN(pred_fake, target_real) * lambda_GAN
-
-            fake_A = netG_B2A(real_B)
+            # Fake loss
+            fake_A = netG_B2A(real_B).detach()
+            fake_A = fake_A_buffer.push_and_pop(fake_A)
             pred_fake = netD_A(fake_A)
-            loss_GAN_B2A = criterion_GAN(pred_fake, target_real) * lambda_GAN
-
-            # Cycle loss
-            recovered_A = netG_B2A(fake_B)
-            loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * lambda_cycle
-
-            recovered_B = netG_A2B(fake_A)
-            loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
+            loss_D_fake = criterion_GAN(pred_fake, target_fake)
 
             # Total loss
-            loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
-            loss_G.backward()
+            loss_D_A = (loss_D_real + loss_D_fake) * 0.5
+            loss_D_A.backward()
 
-            train_losses.append(loss_G.item())
-            data_loader_train.desc = f"[train epoch {epoch}] loss: {np.mean(train_losses):.4f} "
-
-            optimizer_G.step()
-
-            ###### Discriminator A ######
-            if batch_idx % update_discriminator_freq == 0:  # 每隔 update_discriminator_freq 次迭代更新一次判别器
-                optimizer_D_A.zero_grad()
-
-                # Real loss
-                pred_real = netD_A(real_A)
-                loss_D_real = criterion_GAN(pred_real, target_real)
-
-                # Fake loss
-                fake_A = fake_A_buffer.push_and_pop(fake_A)
-                pred_fake = netD_A(fake_A.detach())
-                loss_D_fake = criterion_GAN(pred_fake, target_fake)
-
-                # Total loss
-                loss_D_A = (loss_D_real + loss_D_fake) * 0.5
-                loss_D_A.backward()
-
-                optimizer_D_A.step()
+            optimizer_D_A.step()
 
             ###### Discriminator B ######
-            if batch_idx % update_discriminator_freq == 0:  # 每隔 update_discriminator_freq 次迭代更新一次判别器
-                optimizer_D_B.zero_grad()
+            optimizer_D_B.zero_grad()
 
-                # Real loss
-                pred_real = netD_B(real_B)
-                loss_D_real = criterion_GAN(pred_real, target_real)
+            # Real loss
+            pred_real = netD_B(real_B)
+            loss_D_real = criterion_GAN(pred_real, target_real)
 
-                # Fake loss
-                fake_B = fake_B_buffer.push_and_pop(fake_B)
-                pred_fake = netD_B(fake_B.detach())
-                loss_D_fake = criterion_GAN(pred_fake, target_fake)
+            # Fake loss
+            fake_B = netG_A2B(real_A).detach()
+            fake_B = fake_B_buffer.push_and_pop(fake_B)
+            pred_fake = netD_B(fake_B)
+            loss_D_fake = criterion_GAN(pred_fake, target_fake)
+
+            # Total loss
+            loss_D_B = (loss_D_real + loss_D_fake) * 0.5
+            loss_D_B.backward()
+
+            optimizer_D_B.step()
+
+            # 只在最后一次判别器更新后训练生成器
+            if batch_idx % n_critic == 0:
+                ###### Generators A2B and B2A ######
+                optimizer_G.zero_grad()
+
+                # Identity loss
+                same_B = netG_A2B(real_B)
+                loss_identity_B = criterion_identity(same_B, real_B) * lambda_identity
+                same_A = netG_B2A(real_A)
+                loss_identity_A = criterion_identity(same_A, real_A) * lambda_identity
+
+                # GAN loss
+                fake_B = netG_A2B(real_A)
+                pred_fake = netD_B(fake_B)
+                loss_GAN_A2B = criterion_GAN(pred_fake, target_real) * lambda_GAN
+
+                fake_A = netG_B2A(real_B)
+                pred_fake = netD_A(fake_A)
+                loss_GAN_B2A = criterion_GAN(pred_fake, target_real) * lambda_GAN
+
+                # Cycle loss
+                recovered_A = netG_B2A(fake_B)
+                loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * lambda_cycle
+
+                recovered_B = netG_A2B(fake_A)
+                loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
 
                 # Total loss
-                loss_D_B = (loss_D_real + loss_D_fake) * 0.5
-                loss_D_B.backward()
+                loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
+                loss_G.backward()
 
-                optimizer_D_B.step()
+                train_losses.append(loss_G.item())
+                data_loader_train.desc = f"[train epoch {epoch}] loss: {np.mean(train_losses):.4f} "
+
+                optimizer_G.step()
 
             if opt.log:
                 # Progress report (http://localhost:8097)
