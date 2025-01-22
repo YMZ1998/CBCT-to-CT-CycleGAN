@@ -36,7 +36,7 @@ class Logger():
         self.mean_period += (time.time() - self.prev_time)
         self.prev_time = time.time()
         if (self.batch % self.batches_epoch) == 0:
-            print(self.batch , self.batches_epoch)
+            # print(self.batch , self.batches_epoch)
             sys.stdout.write('\rEpoch %03d/%03d [%04d/%04d] -- ' % (self.epoch, self.n_epochs, self.batch, self.batches_epoch))
 
         for i, loss_name in enumerate(losses.keys()):
