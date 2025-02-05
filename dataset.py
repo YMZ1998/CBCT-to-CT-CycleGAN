@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 
 def normalize(data, anatomy='pelvis'):
     if anatomy == 'pelvis':
-        data_min, data_max = -1000, 2000
+        data_min, data_max = -800, 1500
 
     elif anatomy == 'brain':
         data_min, data_max = -1000, 2000

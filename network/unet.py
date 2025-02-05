@@ -137,6 +137,8 @@ class SpectralNormDiscriminator(nn.Module):
             nn.InstanceNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, True),
 
+            nn.Dropout2d(0.5),
+
             nn.utils.spectral_norm(nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=1, padding=1))
         )
 

@@ -19,7 +19,7 @@ def export_to_onnx():
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='brain', help="The anatomy type")
     parser.add_argument('--model_path', type=str, default='../checkpoint', help="Path to save model checkpoints")
     opt = parser.parse_args()
     print(opt)

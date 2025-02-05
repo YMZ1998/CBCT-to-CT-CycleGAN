@@ -16,8 +16,14 @@ def load_random_npy_files(folder, num_samples=5):
     npy_files = [f for f in os.listdir(folder) if f.endswith('.npy')]
     selected_files = random.sample(npy_files, min(num_samples, len(npy_files)))
     arrays = [np.load(os.path.join(folder, f)) for f in selected_files]
+    for i in range(len(arrays)):
+        arrays[i] = normalize_to_range(arrays[i])
     return arrays
 
+
+def normalize_to_range(data):
+    data = np.clip(data, -800, 1500)
+    return data
 
 def plot_images(ct_images, cbct_images):
     num_samples = min(len(ct_images), len(cbct_images))

@@ -41,10 +41,14 @@ def save_array_as_nii(array, file_path, reference=None):
 
 
 def img_normalize(img, anatomy):
-    if anatomy == 'pelvis':
-        img = np.clip(img, -1000, 2000)
-    elif anatomy == 'brain':
-        img = np.clip(img, -1000, 2000)
+    if args.anatomy == 'pelvis':
+        min_v = -800
+        max_v = 1500
+    elif args.anatomy == 'brain':
+        min_v = -1000
+        max_v = 2000
+    img = np.clip(img, min_v, max_v)
+
     min_value = np.min(img)
     max_value = np.max(img)
     print("min_value: ", min_value, "max_value: ", max_value)
@@ -149,11 +153,12 @@ def val_onnx(args):
     start_time = time.time()
 
     out_results = []
-    min_v = -1000
-    max_v = 2000
+
     if args.anatomy == 'pelvis':
-        max_v = 1000
+        min_v = -1000
+        max_v = 2000
     elif args.anatomy == 'brain':
+        min_v = -1000
         max_v = 2000
     for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
         # cbct = img_normalize(cbct, args.anatomy)
@@ -193,8 +198,8 @@ if __name__ == '__main__':
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='../checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis4.nii.gz', help="Path to cbct file")
-    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis_3/cbct.nii.gz', help="Path to cbct file")
+    # parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis4.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
     parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")

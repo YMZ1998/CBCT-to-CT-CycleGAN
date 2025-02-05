@@ -51,9 +51,9 @@ def visualize_random_slices(ct_data, cbct_data, num_samples=3):
 
 
 def normalize_to_range(data):
-    data_max = 2000
-    data = np.clip(data, -1000, data_max)
-    data_min, data_max2 = np.min(data), np.max(data)
+    data_max = 1500
+    data = np.clip(data, -800, data_max)
+    # data_min, data_max2 = np.min(data), np.max(data)
     # print(data_min, data_max)
     # data = (data - data_min) / (data_max - data_min + 1e-8)
     return data
@@ -88,7 +88,7 @@ def visualize_with_visdom(ct_data, cbct_data, num_samples=3):
 
 def check():
     # data_dir = r'D:\Data\cbct_ct\pelvis\2PA055'
-    data_dir = r'D:\Data\cbct_ct\pelvis_inner\02157648-FM'
+    data_dir = r'D:\Data\cbct_ct\pelvis_inner\11587378-M'
     # data_dir = r'D:\Data\cbct_ct\brain\2BA004'
     ct_path = os.path.join(data_dir, 'ct')
     cbct_path = os.path.join(data_dir, 'cbct')

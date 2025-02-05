@@ -118,7 +118,8 @@ def compute_metrics(origin_ct_path, predict_path):
 
 
 def compute_val_metrics():
-    origin_ct_path = '../test_data/pelvis_1/ct.nii.gz'
+    origin_ct_path = '../test_data/brain_1/ct.nii.gz'
+    # predict_path = origin_ct_path.replace('ct', 'cbct')
     # origin_ct_path = '../test_data/pelvis4.nii.gz'
     predict_path = "../test_data/predict.nii.gz"
     compute_metrics(origin_ct_path, predict_path)

@@ -3,23 +3,23 @@ import glob
 import os
 import shutil
 import sys
+from random import shuffle
 
 import numpy as np
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.autograd import Variable
+from skimage.metrics import structural_similarity as ssim
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision.utils import save_image
 from tqdm import tqdm
-from skimage.metrics import structural_similarity as ssim
-from network.models import Generator
+
 from network.unet import UNetGenerator
 
 
 def normalize(data):
-    data_min, data_max = -1000, 2000
+    data_min, data_max = -800, 1500
     data = np.clip(data, data_min, data_max)
     # data_min, data_max = np.min(data), np.max(data)
     return (data - data_min) / (data_max - data_min + 1e-8)
@@ -29,6 +29,7 @@ class NpyDataset(Dataset):
     def __init__(self, folder, transforms_=None):
         self.transform = transforms.Compose(transforms_)
         self.files_A = sorted(glob.glob(os.path.join(folder, '*.*')))[:100]
+        shuffle(self.files_A)
 
     def __getitem__(self, index):
         item_A = np.load(self.files_A[index % len(self.files_A)]).astype(np.float32)
