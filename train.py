@@ -111,12 +111,13 @@ if __name__ == '__main__':
     if opt.log:
         logger = Logger(opt.n_epochs, len(dataloader))
 
-    # 设置判别器更新次数
-    n_critic = 2  # 判别器训练次数
+    # 设置生成器额外训练的次数
+    n_generator = 3  # 生成器训练次数
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
         train_losses = []
+
         for batch_idx, batch in enumerate(data_loader_train):
             # Set model input
             real_A = batch['A'].to(device)
@@ -125,7 +126,7 @@ if __name__ == '__main__':
             input_A = real_A.detach().clone()
             input_B = real_B.detach().clone()
 
-            ###### Discriminator A ######
+            ###### 训练判别器 A ######
             optimizer_D_A.zero_grad()
 
             # Real loss
@@ -141,10 +142,9 @@ if __name__ == '__main__':
             # Total loss
             loss_D_A = (loss_D_real + loss_D_fake) * 0.5
             loss_D_A.backward()
-
             optimizer_D_A.step()
 
-            ###### Discriminator B ######
+            ###### 训练判别器 B ######
             optimizer_D_B.zero_grad()
 
             # Real loss
@@ -160,12 +160,10 @@ if __name__ == '__main__':
             # Total loss
             loss_D_B = (loss_D_real + loss_D_fake) * 0.5
             loss_D_B.backward()
-
             optimizer_D_B.step()
 
-            # 只在最后一次判别器更新后训练生成器
-            if batch_idx % n_critic == 0:
-                ###### Generators A2B and B2A ######
+            ###### 让生成器多训练 n_generator 次 ######
+            for _ in range(n_generator):  # 额外训练 n_generator 次生成器
                 optimizer_G.zero_grad()
 
                 # Identity loss
@@ -191,13 +189,17 @@ if __name__ == '__main__':
                 loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
 
                 # Total loss
-                loss_G = loss_identity_A + loss_identity_B + loss_GAN_A2B + loss_GAN_B2A + loss_cycle_ABA + loss_cycle_BAB
+                loss_G = (
+                    loss_identity_A + loss_identity_B +
+                    loss_GAN_A2B + loss_GAN_B2A +
+                    loss_cycle_ABA + loss_cycle_BAB
+                )
                 loss_G.backward()
+                optimizer_G.step()
 
                 train_losses.append(loss_G.item())
-                data_loader_train.desc = f"[train epoch {epoch}] loss: {np.mean(train_losses):.4f} "
 
-                optimizer_G.step()
+            data_loader_train.desc = f"[train epoch {epoch}] loss: {np.mean(train_losses):.4f} "
 
             if opt.log:
                 # Progress report (http://localhost:8097)
