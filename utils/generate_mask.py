@@ -41,7 +41,7 @@ def get_3d_mask(img):
 if __name__ == '__main__':
 
     # case = 'brain'
-    case = 'pelvis4'
+    case = 'pelvis5'
 
     ct_path=f'../test_data/{case}.nii.gz'
     mask_path=ct_path.replace('.nii.gz', '_mask.nii.gz')
