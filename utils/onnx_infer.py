@@ -32,21 +32,18 @@ def test_a2b(input_path, output_path):
     remove_and_create_dir(output_path)
 
     for i, image_file in enumerate(tqdm(image_files, file=sys.stdout)):
-        image = Image.open(image_file).convert('L')  # 转换为灰度图像
-        image = image.resize((opt.size, opt.size))  # 调整图像大小
-        image = np.array(image)  # 转换为 NumPy 数组
+        image = Image.open(image_file).convert('L')
+        image = image.resize((opt.size, opt.size))
+        image = np.array(image)
 
-        # 归一化并添加 batch 和 channel 维度
-        image = (image / 255.0 - 0.5) / 0.5  # 归一化到 [-1, 1]
-        image = np.expand_dims(image, axis=0)  # 添加 channel 维度
-        image = np.expand_dims(image, axis=0)  # 添加 batch 维度
+        image = (image / 255.0 - 0.5) / 0.5
+        image = np.expand_dims(image, axis=0)
+        image = np.expand_dims(image, axis=0)
         print(image.shape)
-        # 运行 ONNX 推理
         fake_B = session.run(None, {input_name: image.astype(np.float32)})[0]
 
-        # 反归一化并保存为图像
-        fake_B = (fake_B.squeeze() * 0.5 + 0.5) * 255.0  # 反归一化到 [0, 255]
-        fake_B = fake_B.astype(np.uint8)  # 转换为 uint8
+        fake_B = (fake_B.squeeze() * 0.5 + 0.5) * 255.0
+        fake_B = fake_B.astype(np.uint8)
         Image.fromarray(fake_B).save(os.path.join(output_path, f"{i:04d}.png"))
 
         sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(image_files)))

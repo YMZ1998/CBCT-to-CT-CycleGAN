@@ -29,15 +29,12 @@ def save_as_png(pixel_array, output_path, target_size=(256, 256)):
     image = Image.fromarray(pixel_array)
 
     if target_size is not None:
-        image = image.resize(target_size, Image.BICUBIC)  # 使用双三次插值
+        image = image.resize(target_size, Image.BICUBIC)
 
     image.save(output_path)
 
 
 def convert_dicom_to_png(dicom_path, output_path):
-    """
-    将单个 DICOM 文件转换为 PNG 图像。
-    """
     pixel_array, dicom = load_dicom(dicom_path)
 
     pixel_array_normalized = normalize_to_uint8(pixel_array)
@@ -46,9 +43,6 @@ def convert_dicom_to_png(dicom_path, output_path):
 
 
 def convert_folder_dicom_to_png(input_folder, output_folder):
-    """
-    将文件夹中的所有 DICOM 文件转换为 PNG 图像。
-    """
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 

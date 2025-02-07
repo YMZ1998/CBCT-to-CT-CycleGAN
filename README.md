@@ -1,7 +1,9 @@
 # CBCT-to-CT-CycleGAN
 CBCT generates pseudo CT using CycleGAN.
 
-## visdom
+### [Visdom](https://github.com/facebookresearch/visdom)
+To plot loss graphs and draw images in a nice web browser view
+
 ```
 pip install visdom
 ```
@@ -11,6 +13,43 @@ python -m visdom.server
 ```
 
 http://localhost:8097
+
+## Environment
+
+```bash
+conda env create -f env.yml
+```
+
+```bash
+conda activate lj_py
+```
+
+Export env
+```bash
+conda env export --no-builds --ignore-channels > env.yml
+```
+
+## Dataset
+Alternatively you can build your own dataset by setting up the following directory structure:
+
+    .
+    ├── datasets                   
+    |   ├── <dataset_name>         # i.e. cbct2ct
+    |   |   ├── train              # Training
+    |   |   |   ├── A              # Contains domain A images (i.e. cbct)
+    |   |   |   └── B              # Contains domain B images (i.e. ct)
+    |   |   └── test               # Testing
+    |   |   |   ├── A              # Contains domain A images (i.e. cbct)
+    |   |   |   └── B              # Contains domain B images (i.e. ct)
+
+
+## Train, Test & Predict
+
+```bash
+python train.py
+python test.py
+python test_A2B.py
+```
 
 ## PyInstaller Installation Guide:
 
@@ -68,3 +107,8 @@ CBCT2CT.exe --cbct_path ./test_data/pelvis.nii.gz --result_path ./result --anato
 conda deactivate
 conda remove --name cbct2ct --all
 ```
+
+# Reference
+[CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
+
+[PyTorch-CycleGAN](https://github.com/YMZ1998/PyTorch-CycleGAN)

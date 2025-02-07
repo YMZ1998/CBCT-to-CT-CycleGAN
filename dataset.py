@@ -111,12 +111,12 @@ def test_npy_dataset():
         plt.figure(figsize=(10, 5))
 
         plt.subplot(1, 2, 1)
-        plt.imshow(sample['A'].squeeze(), cmap='gray')  # 假设是单通道图像
+        plt.imshow(sample['A'].squeeze(), cmap='gray')
         plt.title('A')
         plt.axis('off')
 
         plt.subplot(1, 2, 2)
-        plt.imshow(sample['B'].squeeze(), cmap='gray')  # 假设是单通道图像
+        plt.imshow(sample['B'].squeeze(), cmap='gray')
         plt.title('B')
         plt.axis('off')
 
@@ -126,17 +126,15 @@ def test_npy_dataset():
         sample = dataset[i]
         plot_sample(sample)
 
-    # 使用 DataLoader 加载数据
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
-    # 遍历 DataLoader
     for i, batch in enumerate(dataloader):
         print(f"批次 {i + 1}:")
         print(f"A 的形状: {batch['A'].shape}")
         print(f"B 的形状: {batch['B'].shape}")
         print(f"A 的最大值: {batch['A'].max()}")
         print(f"A 的最小值: {batch['A'].min()}")
-        if i == 3:  # 只检查第一个批次
+        if i == 3:
             break
 
 
