@@ -143,10 +143,6 @@ def check_nii():
 
 
 def transfer_folder():
-    # input_dir = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CT"
-    # input_dir2 = r"D:\Data\CBCT2CT\TrainingSet\Trainingset_CBCT"
-    # output_dir = r"D:\Data\CBCT2CT\Data"
-
     input_dir = r"D:\Data\CBCT2CT2\CT"
     input_dir2 = r"D:\Data\CBCT2CT2\CBCT"
     output_dir = r"D:\Data\CBCT2CT2\Data"

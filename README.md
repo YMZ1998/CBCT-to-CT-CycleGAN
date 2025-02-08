@@ -76,7 +76,7 @@ pip install -i https://pypi.tuna.tsinghua.edu.cn/simple tqdm
 
 ```bash
 cd installer
-pyinstaller --name CBCT2CT --onefile --icon=cbct2ct.ico CBCT2CT.py
+pyinstaller --name CBCT2CT --onefile --icon=cbct2ct_logo.ico CBCT2CT.py
 ```
 
 ### 4. Clean the Build Cache and Temporary Files
@@ -112,3 +112,13 @@ conda remove --name cbct2ct --all
 [CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix)
 
 [PyTorch-CycleGAN](https://github.com/YMZ1998/PyTorch-CycleGAN)
+
+[CycleGANBlog](https://hardikbansal.github.io/CycleGANBlog/)
+
+[CycleGAN](https://junyanz.github.io/CycleGAN/)
+
+[Training tips](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix/blob/master/docs/tips.md)
+
+[PyTorch-CycleGAN](https://github.com/aitorzip/PyTorch-CycleGAN)
+
+[Tips](https://www.icviews.cn/semiCommunity/postDetail/5923)

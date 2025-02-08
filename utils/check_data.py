@@ -9,7 +9,7 @@ def load_png_images(folder_path):
     images = []
     for file in image_files:
         img = Image.open(os.path.join(folder_path, file))
-        img_array = np.array(img)  # 转换为 NumPy 数组
+        img_array = np.array(img)
         images.append(img_array)
     return np.stack(images)
 

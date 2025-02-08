@@ -1,96 +1,76 @@
 import argparse
 import os
-import shutil
 import sys
 
 import torch
 import torchvision.transforms as transforms
-from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torchvision.utils import save_image
 from tqdm import tqdm
 
-from datasets import ImageDataset
-from network.models import Generator
-
-
-def remove_and_create_dir(path):
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
-
+from dataset import NpyDataset
+from network.unet import UNetGenerator
+from utils.utils import remove_and_create_dir
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-    parser.add_argument('--dataroot', type=str, default='datasets/cbct2ct/', help='root directory of the dataset')
+    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
+    parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'chest'], default='chest', help="The anatomy type")
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true', help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--generator_A2B', type=str, default='checkpoint/netG_A2B.pth',
-                        help='A2B generator checkpoint file')
-    parser.add_argument('--generator_B2A', type=str, default='checkpoint/netG_B2A.pth',
-                        help='B2A generator checkpoint file')
+    parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
+
     opt = parser.parse_args()
     print(opt)
 
-    if torch.cuda.is_available() and not opt.cuda:
-        print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+    opt.model_path = str(os.path.join(opt.model_path, opt.anatomy))
+    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy))
 
-    ###### Definition of variables ######
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     # Networks
-    netG_A2B = Generator(opt.input_nc, opt.output_nc)
-    netG_B2A = Generator(opt.output_nc, opt.input_nc)
-
-    if opt.cuda:
-        netG_A2B.cuda()
-        netG_B2A.cuda()
+    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc).to(device)
+    netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc).to(device)
 
     # Load state dicts
-    netG_A2B.load_state_dict(torch.load(opt.generator_A2B, weights_only=False, map_location='cpu'))
-    netG_B2A.load_state_dict(torch.load(opt.generator_B2A, weights_only=False, map_location='cpu'))
+    netG_A2B.load_state_dict(
+        torch.load(os.path.join(opt.model_path, 'netG_A2B.pth'), weights_only=False, map_location='cpu'))
+    netG_B2A.load_state_dict(
+        torch.load(os.path.join(opt.model_path, 'netG_B2A.pth'), weights_only=False, map_location='cpu'))
 
     # Set model's test mode
     netG_A2B.eval()
     netG_B2A.eval()
 
     # Inputs & targets memory allocation
-    Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-    input_A = Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size)
-    input_B = Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size)
+    input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
+    input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
     # Dataset loader
     transforms_ = [transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
-    dataloader = DataLoader(ImageDataset(opt.dataroot, transforms_=transforms_, mode='test'),
-                            batch_size=opt.batchSize, shuffle=False, num_workers=opt.n_cpu)
-    ###################################
+    dataloader = DataLoader(NpyDataset(opt.dataset_path, transforms_=transforms_, mode='test'),
+                            batch_size=opt.batch_size, shuffle=False, num_workers=opt.n_cpu)
 
-    ###### Testing######
-
-    # Create output dirs if they don't exist
-    remove_and_create_dir('output/A')
-    remove_and_create_dir('output/B')
+    remove_and_create_dir('./test_data/result/A')
+    remove_and_create_dir('./test_data/result/B')
 
     data_loader_test = tqdm(dataloader, file=sys.stdout)
     i = 0
     for batch in data_loader_test:
         i = i + 1
         # Set model input
-        real_A = Variable(input_A.copy_(batch['A']))
-        real_B = Variable(input_B.copy_(batch['B']))
+        real_A = batch['A'].to(device)
+        real_B = batch['B'].to(device)
 
         # Generate output
         fake_B = 0.5 * (netG_A2B(real_A).data + 1.0)
         fake_A = 0.5 * (netG_B2A(real_B).data + 1.0)
 
         # Save image files
-        save_image(fake_A, 'output/A/%04d.png' % (i + 1))
-        save_image(fake_B, 'output/B/%04d.png' % (i + 1))
-
-        sys.stdout.write('\rGenerated images %04d of %04d' % (i + 1, len(dataloader)))
-
-    sys.stdout.write('\n')
-    ###################################
+        save_image(fake_A, './test_data/result/A/%04d.png' % (i + 1))
+        save_image(fake_B, './test_data/result/B/%04d.png' % (i + 1))

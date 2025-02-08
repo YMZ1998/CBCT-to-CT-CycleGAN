@@ -51,11 +51,7 @@ def visualize_random_slices(ct_data, cbct_data, num_samples=3):
 
 
 def normalize_to_range(data):
-    data_max = 1500
-    data = np.clip(data, -800, data_max)
-    # data_min, data_max2 = np.min(data), np.max(data)
-    # print(data_min, data_max)
-    # data = (data - data_min) / (data_max - data_min + 1e-8)
+    data = np.clip(data, -800, 1500)
     return data
 
 

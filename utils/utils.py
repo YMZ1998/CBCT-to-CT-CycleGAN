@@ -126,35 +126,18 @@ class LambdaLR():
         return 1.0 - max(0, epoch + self.offset - self.decay_start_epoch) / (self.n_epochs - self.decay_start_epoch)
 
 
-# def weights_init_normal(m):
-#     classname = m.__class__.__name__
-#     if classname.find('Conv') != -1:
-#         torch.nn.init.normal(m.weight.data, 0.0, 0.02)
-#     elif classname.find('BatchNorm2d') != -1:
-#         torch.nn.init.normal(m.weight.data, 1.0, 0.02)
-#         torch.nn.init.constant(m.bias.data, 0.0)
-
 def weights_init_normal(m):
     classname = m.__class__.__name__
-    if isinstance(m, nn.Conv2d):  # 使用 isinstance 更简洁且稳健
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)  # 用原地操作
+    if isinstance(m, nn.Conv2d):
+        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
         if m.bias is not None:
-            torch.nn.init.constant_(m.bias.data, 0.0)  # 假设存在 bias
+            torch.nn.init.constant_(m.bias.data, 0.0)
     elif isinstance(m, nn.BatchNorm2d):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
-        torch.nn.init.constant_(m.bias.data, 0.0)  # 假设存在 bias
+        torch.nn.init.constant_(m.bias.data, 0.0)
 
 
 def remove_and_create_dir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path, exist_ok=True)
-
-
-def normalize(data, anatomy='pelvis'):
-    if anatomy == 'pelvis':
-        data = np.clip(data, -1000, 1000)
-    elif anatomy == 'brain':
-        data = np.clip(data, -1000, 2000)
-    data_min, data_max = np.min(data), np.max(data)
-    return (data - data_min) / (data_max - data_min + 1e-8)

@@ -6,7 +6,6 @@ from PIL import Image
 
 def load_png_sequence(folder_path):
     image_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.png')])
-    # image_files=[str(i)+'.png' for i in range(len(image_files))]
     images = []
 
     for file in image_files:

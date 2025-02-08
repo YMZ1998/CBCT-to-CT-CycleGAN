@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis'], default='pelvis', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'chest'], default='chest', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
