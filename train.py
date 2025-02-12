@@ -18,12 +18,12 @@ from utils.utils import ReplayBuffer, LambdaLR, Logger
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
-    parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
+    parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
-    parser.add_argument('--decay_epoch', type=int, default=100,
+    parser.add_argument('--decay_epoch', type=int, default=50,
                         help='epoch to start linearly decaying the learning rate to 0')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
     parser.add_argument('--size', type=int, default=512, help='size of the data crop (squared assumed)')

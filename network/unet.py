@@ -33,7 +33,7 @@ class UNetGenerator(nn.Module):
 
 class UNetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm2d):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d):
         super(UNetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         if input_nc is None:
@@ -77,7 +77,7 @@ class UNetSkipConnectionBlock(nn.Module):
 
 
 class PatchGANDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64, n_layers=3):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d):
         super(PatchGANDiscriminator, self).__init__()
 
         kw = 4  # Kernel size
@@ -93,7 +93,7 @@ class PatchGANDiscriminator(nn.Module):
             nf_mult = min(2 ** n, 8)
             sequence += [
                 nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=2, padding=padw),
-                nn.InstanceNorm2d(ndf * nf_mult),
+                norm_layer(ndf * nf_mult),
                 nn.LeakyReLU(0.2, True)
             ]
 
@@ -101,7 +101,7 @@ class PatchGANDiscriminator(nn.Module):
         nf_mult = min(2 ** n_layers, 8)
         sequence += [
             nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw),
-            nn.InstanceNorm2d(ndf * nf_mult),
+            norm_layer(ndf * nf_mult),
             nn.LeakyReLU(0.2, True)
         ]
 
