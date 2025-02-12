@@ -10,8 +10,8 @@ from sympy.core.random import shuffle
 from torch.utils.data import Dataset, DataLoader
 
 
-def normalize(data, anatomy='chest'):
-    if anatomy == 'pelvis' or anatomy == 'chest':
+def normalize(data, anatomy='brain'):
+    if anatomy == 'pelvis' or anatomy == 'thorax':
         data_min, data_max = -800, 1500
 
     elif anatomy == 'brain':
@@ -25,7 +25,7 @@ def normalize(data, anatomy='chest'):
 
 
 class NpyDataset(Dataset):
-    def __init__(self, root, transforms_=None, unaligned=False, mode='train', anatomy='chest'):
+    def __init__(self, root, transforms_=None, unaligned=False, mode='train', anatomy='thorax'):
         self.transform = transforms.Compose(transforms_) if transforms_ else None
         self.unaligned = unaligned
         self.anatomy = anatomy
@@ -84,17 +84,18 @@ class ImageDataset(Dataset):
 
 
 def test_npy_dataset():
-    root = './datasets/chest'
+    size = 512
+    root = './datasets/thorax' + '-' + str(size)
     # root = './datasets/brain'
 
     transforms_ = [
-        transforms.Resize(int(512), Image.BILINEAR),
-        # transforms.RandomCrop(256),
-        # transforms.RandomHorizontalFlip(),
+        transforms.Resize(int(size * 1.12), Image.BILINEAR),
+        transforms.RandomCrop(size),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])]
 
-    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train', anatomy='chest')
+    dataset = NpyDataset(root=root, transforms_=transforms_, unaligned=True, mode='train', anatomy='thorax')
     # dataset = ImageDataset(root=root, transforms_=transforms_, unaligned=True, mode='train')
 
     print(f"数据集大小: {len(dataset)}")
@@ -138,6 +139,5 @@ def test_npy_dataset():
             break
 
 
-# 运行测试
 if __name__ == '__main__':
     test_npy_dataset()

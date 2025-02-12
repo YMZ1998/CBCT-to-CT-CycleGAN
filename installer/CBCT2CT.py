@@ -124,7 +124,7 @@ def load_data(cbct_path, shape, anatomy):
 
 
 def val_onnx(args):
-    args.image_size = 256
+    args.image_size = 512
     # args.onnx_path = os.path.join(args.onnx_path, 'cbct2ct.onnx')
     args.onnx_path = os.path.join(args.onnx_path, f'{args.anatomy}.onnx')
     assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
@@ -199,10 +199,10 @@ if __name__ == '__main__':
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='./checkpoint', help="Path to onnx")
     parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis5.nii.gz', help="Path to cbct file")
+    parser.add_argument('--cbct_path', type=str, default='./dist/test_data/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")
-    parser.add_argument('--result_path', type=str, default='../test_data', help="Path to save results")
+    parser.add_argument('--result_path', type=str, default='./dist/result', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
     args = parser.parse_args()
 

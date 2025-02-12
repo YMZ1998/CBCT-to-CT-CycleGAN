@@ -100,7 +100,7 @@ if __name__ == '__main__':
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size * 1.2), Image.BILINEAR),
+    transforms_ = [transforms.Resize(int(opt.size * 1.12), Image.BILINEAR),
                    transforms.RandomCrop(opt.size),
                    transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
