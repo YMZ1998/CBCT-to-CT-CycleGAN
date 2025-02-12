@@ -11,8 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import NpyDataset
-from network.models import Generator, Discriminator
-from network.unet import PatchGANDiscriminator, UNetGenerator, SpectralNormDiscriminator
+from network.unet import UNetGenerator, SpectralNormDiscriminator
 from utils.losses import CycleLoss
 from utils.utils import ReplayBuffer, LambdaLR, Logger
 
@@ -22,12 +21,12 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs of training')
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'chest'], default='chest', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=100,
                         help='epoch to start linearly decaying the learning rate to 0')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
-    parser.add_argument('--size', type=int, default=256, help='size of the data crop (squared assumed)')
+    parser.add_argument('--size', type=int, default=512, help='size of the data crop (squared assumed)')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
@@ -38,7 +37,8 @@ if __name__ == '__main__':
     print(opt)
 
     opt.model_path = str(os.path.join(opt.model_path, opt.anatomy))
-    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy))
+    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy+'-'+str(opt.size)))
+    print(opt.dataset_path)
     os.makedirs(opt.model_path, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -93,15 +93,16 @@ if __name__ == '__main__':
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_real = torch.full((opt.batch_size, 1, 30, 30), 0.9, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batch_size, 1, 30, 30), 0.1, device=device, dtype=torch.float32)
+    target_size = int(opt.size // 8 - 2)
+    target_real = torch.full((opt.batch_size, 1, target_size, target_size), 0.9, device=device, dtype=torch.float32)
+    target_fake = torch.full((opt.batch_size, 1, target_size, target_size), 0.1, device=device, dtype=torch.float32)
 
     fake_A_buffer = ReplayBuffer()
     fake_B_buffer = ReplayBuffer()
 
-    transforms_ = [transforms.Resize(int(opt.size), Image.BILINEAR),
-                   # transforms.RandomCrop(opt.size),
-                   # transforms.RandomHorizontalFlip(),
+    transforms_ = [transforms.Resize(int(opt.size * 1.2), Image.BILINEAR),
+                   transforms.RandomCrop(opt.size),
+                   transforms.RandomHorizontalFlip(),
                    transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataset = NpyDataset(opt.dataset_path, transforms_=transforms_, unaligned=True, anatomy=opt.anatomy)
@@ -112,7 +113,7 @@ if __name__ == '__main__':
         logger = Logger(opt.n_epochs, len(dataloader))
 
     # 设置生成器额外训练的次数
-    n_generator = 3  # 生成器训练次数
+    n_generator = 2  # 生成器训练次数
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)

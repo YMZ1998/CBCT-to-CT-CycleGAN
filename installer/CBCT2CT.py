@@ -44,7 +44,7 @@ def img_normalize(img, anatomy):
     if anatomy == 'pelvis':
         min_v = -800
         max_v = 1500
-    elif anatomy == 'chest':
+    elif anatomy == 'thorax':
         min_v = -800
         max_v = 1500
     elif anatomy == 'brain':
@@ -161,14 +161,8 @@ def val_onnx(args):
     out_results = []
     min_v = -1000
     max_v = 2000
-    # if args.anatomy == 'pelvis':
-    #     min_v = -1000
-    #     max_v = 2000
-    # elif args.anatomy == 'brain':
-    #     min_v = -1000
-    #     max_v = 2000
+
     for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
-        # cbct = img_normalize(cbct, args.anatomy)
         cbct = np.expand_dims(cbct, 0)
         cbct = np.expand_dims(cbct, 0)
         output_name = session.get_outputs()[0].name
@@ -204,7 +198,7 @@ if __name__ == '__main__':
         usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
     parser.add_argument('--onnx_path', type=str, default='./checkpoint', help="Path to onnx")
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'chest'], default='chest', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--cbct_path', type=str, default='../test_data/pelvis5.nii.gz', help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--mask_path', type=str, required=True, help="Path to mask file")

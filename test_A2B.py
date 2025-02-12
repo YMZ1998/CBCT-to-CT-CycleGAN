@@ -69,8 +69,8 @@ def test_a2b(input_path, output_path):
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
-    parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'chest'], default='chest', help="The anatomy type")
+    parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
 
     opt = parser.parse_args()
@@ -86,7 +86,8 @@ def test_a2b(input_path, output_path):
 
     input_A = torch.zeros((opt.batch_size, opt.input_nc, opt.size, opt.size), dtype=torch.float32, device=device)
 
-    transforms_ = [transforms.ToTensor(),
+    transforms_ = [transforms.Resize(int(opt.size), Image.BILINEAR),
+                   transforms.ToTensor(),
                    transforms.Normalize([0.5], [0.5])]
     dataloader = DataLoader(NpyDataset(input_path, transforms_=transforms_),
                             batch_size=opt.batch_size, shuffle=False, num_workers=8)
@@ -132,6 +133,6 @@ def test_a2b(input_path, output_path):
 
 
 if __name__ == '__main__':
-    input_path = r'./datasets/pelvis/test/A'
+    input_path = r'./datasets/thorax/test/A'
     output_path = r'./test_data/result'
     test_a2b(input_path, output_path)

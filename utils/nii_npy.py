@@ -8,8 +8,9 @@ import tqdm
 from matplotlib import pyplot as plt
 from skimage.transform import resize
 
+target_size=(512, 512)
 
-def pad_image(image, target_size=(256, 256)):
+def pad_image(image):
     original_size = image.GetSize()
     original_spacing = image.GetSpacing()
 
@@ -35,7 +36,7 @@ def pad_image(image, target_size=(256, 256)):
     return padded_image
 
 
-def resample_image(image, target_size=(256, 256)):
+def resample_image(image):
     original_size = image.GetSize()
     original_spacing = image.GetSpacing()
 
@@ -57,7 +58,7 @@ def resample_image(image, target_size=(256, 256)):
 
     return resampled_image
 
-def resize_image(image, target_size=(256, 256)):
+def resize_image(image):
     resized_image = resize(image, target_size, mode='constant', preserve_range=True)
     return resized_image.astype(np.int16)
 
@@ -75,14 +76,14 @@ def save_images(file_path, ct, cbct):
         if np.unique(ct[i]).size == 1:
             continue
         ct_img = normalize_to_uint8(ct[i])
-        ct_img = resize_image(ct_img, target_size=(256, 256))
+        ct_img = resize_image(ct_img)
         np.save(os.path.join(ct_dir, f"{i}.npy"), ct_img)
 
     for i in range(len(cbct)):
         if np.unique(cbct[i]).size == 1:
             continue
         cbct_img = normalize_to_uint8(cbct[i])
-        cbct_img = resize_image(cbct_img, target_size=(256, 256))
+        cbct_img = resize_image(cbct_img)
         np.save(os.path.join(cbct_dir, f"{i}.npy"), cbct_img)
 
 
@@ -113,7 +114,7 @@ def load_images(file_path):
         return None, None, None
 
 
-def transfer_folder(path_in, path_out, target_size=(256, 256)):
+def transfer_folder(path_in, path_out):
     if os.path.exists(path_out):
         shutil.rmtree(path_out)
     os.makedirs(path_out, exist_ok=True)
@@ -134,8 +135,8 @@ def transfer_folder(path_in, path_out, target_size=(256, 256)):
         # cbct_image = pad_image(cbct_image, target_size=target_size)
         # mask_padded = pad_image(mask_image, target_size=target_size)
 
-        ct_image = resample_image(ct_image, target_size=target_size)
-        cbct_image = resample_image(cbct_image, target_size=target_size)
+        ct_image = resample_image(ct_image)
+        cbct_image = resample_image(cbct_image)
         # print(ct_resampled.GetSize(), cbct_resampled.GetSize())
         # mask_resampled = resample_image(mask_padded, target_size=target_size)
 
@@ -146,14 +147,14 @@ def transfer_folder(path_in, path_out, target_size=(256, 256)):
         save_images(file_path_out, ct_resampled_np, cbct_resampled_np)
 
 
-def transfer_one_case(path, result, target_size=(256, 256)):
+def transfer_one_case(path, result):
     if os.path.exists(result):
         shutil.rmtree(result)
     os.makedirs(result, exist_ok=True)
 
     image = sitk.ReadImage(path)
-    ct_padded = pad_image(image, target_size=target_size)
-    ct_resampled = resample_image(ct_padded, target_size=target_size)
+    ct_padded = pad_image(image)
+    ct_resampled = resample_image(ct_padded)
     ct_resampled_np = sitk.GetArrayFromImage(ct_resampled)
 
     for i in tqdm.tqdm(range(len(ct_resampled_np))):
@@ -175,7 +176,7 @@ if __name__ == '__main__':
     # path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
 
     path_in = r'D:\Data\CBCT2CT2\Data'
-    path_out = os.path.join(r'D:\Data\cbct_ct', 'pelvis_inner')
+    path_out = os.path.join(r'D:\Data\cbct_ct', 'thorax')
     transfer_folder(path_in, path_out)
 
     # path = r'../test_data/pelvis.nii.gz'

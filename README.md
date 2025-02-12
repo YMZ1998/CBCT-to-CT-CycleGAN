@@ -1,7 +1,7 @@
 # CBCT-to-CT-CycleGAN
 CBCT generates pseudo CT using CycleGAN.
 
-### [Visdom](https://github.com/facebookresearch/visdom)
+## [Visdom](https://github.com/facebookresearch/visdom)
 To plot loss graphs and draw images in a nice web browser view
 
 ```
