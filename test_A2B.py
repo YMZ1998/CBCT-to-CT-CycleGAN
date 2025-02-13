@@ -133,6 +133,6 @@ def test_a2b(input_path, output_path):
 
 
 if __name__ == '__main__':
-    input_path = r'./datasets/thorax/test/A'
+    input_path = r'./datasets/thorax-512/test/A'
     output_path = r'./test_data/result'
     test_a2b(input_path, output_path)

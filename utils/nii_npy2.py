@@ -8,11 +8,18 @@ import tqdm
 from matplotlib import pyplot as plt
 from skimage.transform import resize
 
-target_size=(512, 512)
+TARGET_SIZE = (512, 512)
+
 
 def pad_image(image):
     original_size = image.GetSize()
     original_spacing = image.GetSpacing()
+
+    if original_size[0] != original_size[1]:
+        max_size = max(original_size[0], original_size[1])
+        target_size = (max_size, max_size)
+    else:
+        return image
 
     pad_height = max(target_size[0] - original_size[1], 0)
     pad_width = max(target_size[1] - original_size[0], 0)
@@ -36,7 +43,7 @@ def pad_image(image):
     return padded_image
 
 
-def resample_image(image):
+def resample_image(image, target_size):
     original_size = image.GetSize()
     original_spacing = image.GetSpacing()
 
@@ -58,11 +65,13 @@ def resample_image(image):
 
     return resampled_image
 
+
 def resize_image(image):
-    resized_image = resize(image, target_size, mode='constant', preserve_range=True)
+    resized_image = resize(image, TARGET_SIZE, mode='constant', preserve_range=True)
     return resized_image.astype(np.int16)
 
-def save_images(file_path, ct, cbct):
+
+def save_images(file_path, ct, cbct, step=3):
     ct_dir = os.path.join(file_path, 'ct')
     cbct_dir = os.path.join(file_path, 'cbct')
 
@@ -72,14 +81,14 @@ def save_images(file_path, ct, cbct):
     ct = ct[15:-15]
     cbct = cbct[10:-10]
 
-    for i in range(len(ct)):
+    for i in range(len(ct))[::step]:
         if np.unique(ct[i]).size == 1:
             continue
         ct_img = normalize_to_uint8(ct[i])
         ct_img = resize_image(ct_img)
         np.save(os.path.join(ct_dir, f"{i}.npy"), ct_img)
 
-    for i in range(len(cbct)):
+    for i in range(len(cbct))[::step]:
         if np.unique(cbct[i]).size == 1:
             continue
         cbct_img = normalize_to_uint8(cbct[i])
@@ -109,7 +118,6 @@ def load_images(file_path):
             cbct = cbct - 1000
         if int(np.min(ct)) == 0:
             ct = ct - 1000
-        # mask = sitk.GetArrayFromImage(sitk.ReadImage(file_path + '/mask.nii.gz'))
         return cbct, ct, None
     except Exception as e:
         print(f"Error loading {file_path}: {e}")
@@ -134,20 +142,15 @@ def transfer_folder(path_in, path_out):
 
         ct_image = sitk.GetImageFromArray(ct)
         cbct_image = sitk.GetImageFromArray(cbct)
-        # mask_image = sitk.GetImageFromArray(mask)
 
-        # ct_image = pad_image(ct_image, target_size=target_size)
-        # cbct_image = pad_image(cbct_image, target_size=target_size)
-        # mask_padded = pad_image(mask_image, target_size=target_size)
+        ct_image = pad_image(ct_image)
+        cbct_image = pad_image(cbct_image)
 
-        ct_image = resample_image(ct_image)
-        cbct_image = resample_image(cbct_image)
-        # print(ct_resampled.GetSize(), cbct_resampled.GetSize())
-        # mask_resampled = resample_image(mask_padded, target_size=target_size)
+        ct_image = resample_image(ct_image, TARGET_SIZE)
+        cbct_image = resample_image(cbct_image, TARGET_SIZE)
 
         ct_resampled_np = sitk.GetArrayFromImage(ct_image)
         cbct_resampled_np = sitk.GetArrayFromImage(cbct_image)
-        # mask_resampled_np = sitk.GetArrayFromImage(mask_resampled)
 
         save_images(file_path_out, ct_resampled_np, cbct_resampled_np)
 
@@ -158,25 +161,31 @@ def transfer_one_case(path, result):
     os.makedirs(result, exist_ok=True)
 
     image = sitk.ReadImage(path)
-    ct_padded = pad_image(image)
-    ct_resampled = resample_image(ct_padded)
+
+    image_padded = pad_image(image)
+
+    ct_resampled = resample_image(image_padded, TARGET_SIZE)
     ct_resampled_np = sitk.GetArrayFromImage(ct_resampled)
 
-    for i in tqdm.tqdm(range(len(ct_resampled_np))):
+    for i in tqdm.tqdm(range(len(ct_resampled_np))[::10]):
         ct_img = normalize_to_uint8(ct_resampled_np[i])
         np.save(os.path.join(os.path.join(result, f"{i + 1:04d}.npy")), ct_img)
 
-    data = np.load(os.path.join(result, '0001.npy'))
-    print(data.shape)
-    data_min, data_max = np.min(data), np.max(data)
-    # data = ((data - data_min) / (data_max - data_min + 1e-8) * 255).astype(np.uint8)
-    plt.figure()
-    plt.imshow(data, cmap='gray')
-    plt.show()
+        data = np.load(os.path.join(result, f"{i + 1:04d}.npy"))
+        # print(data.shape)
+        data_min, data_max = np.min(data), np.max(data)
+        data = (data - data_min) / (data_max - data_min + 1e-8)
+        plt.figure()
+        plt.imshow(data, cmap='gray')
+        plt.show()
 
 
 if __name__ == '__main__':
-    path_in = r'D:\Data\CBCT2CT2\Data'
-    path_out = os.path.join(r'D:\Data\cbct_ct', 'thorax')
+    anatomy = 'brain'
+    path_in = os.path.join(r'D:\Data\SynthRAD\Task2', anatomy)
+    path_out = os.path.join(r'D:\Data\cbct_ct', anatomy)
     transfer_folder(path_in, path_out)
 
+    # path = r'../installer/dist/test_data/brain.nii.gz'
+    # result = r'../installer/dist/test_data/brain'
+    # transfer_one_case(path, result)

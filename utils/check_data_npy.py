@@ -84,8 +84,8 @@ def visualize_with_visdom(ct_data, cbct_data, num_samples=3):
 
 def check():
     # data_dir = r'D:\Data\cbct_ct\pelvis\2PA055'
-    data_dir = r'D:\Data\cbct_ct\thorax\11587378-M'
-    # data_dir = r'D:\Data\cbct_ct\brain\2BA004'
+    # data_dir = r'D:\Data\cbct_ct\thorax\11587378-M'
+    data_dir = r'D:\Data\cbct_ct\brain\2BA001'
     ct_path = os.path.join(data_dir, 'ct')
     cbct_path = os.path.join(data_dir, 'cbct')
 

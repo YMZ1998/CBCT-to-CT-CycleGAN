@@ -33,7 +33,7 @@ class UNetGenerator(nn.Module):
 
 class UNetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm2d):
         super(UNetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
         if input_nc is None:

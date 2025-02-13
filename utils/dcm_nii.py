@@ -32,22 +32,14 @@ def resample_image(image, target_spacing, new_size):
     return resampled_image
 
 
-import SimpleITK as sitk
-
 def pad_or_crop_image(image, target_size):
-    """
-    将图像填充或裁剪到目标尺寸。
-    - 如果图像尺寸小于目标尺寸，进行填充。
-    - 如果图像尺寸大于目标尺寸，进行裁剪。
-    - Z 轴保持不变。
-    """
     original_size = image.GetSize()
 
     # 计算每个维度的填充或裁剪量
     lower_bound = [0, 0, 0]  # 裁剪的下边界
     upper_bound = [0, 0, 0]  # 裁剪的上边界
-    pad_lower = [0, 0, 0]    # 填充的下边界
-    pad_upper = [0, 0, 0]    # 填充的上边界
+    pad_lower = [0, 0, 0]  # 填充的下边界
+    pad_upper = [0, 0, 0]  # 填充的上边界
 
     for i in range(3):
         size_diff = target_size[i] - original_size[i]

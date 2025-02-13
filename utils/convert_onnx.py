@@ -62,6 +62,7 @@ def export_to_onnx():
     np.testing.assert_allclose(to_numpy(torch_out), ort_outs[0], rtol=1e-03, atol=1e-05)
     print("Exported model has been tested with ONNXRuntime, and the result looks good!")
 
+    shutil.copy(onnx_file_name, f'../installer/dist/checkpoint/{opt.anatomy}.onnx')
     shutil.copy(onnx_file_name, f'../installer/checkpoint/{opt.anatomy}.onnx')
     os.remove(onnx_file_name)
 

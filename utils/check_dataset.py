@@ -22,7 +22,7 @@ def load_random_npy_files(folder, num_samples=5):
 
 
 def normalize_to_range(data):
-    data = np.clip(data, -800, 1500)
+    data = np.clip(data, -1000, 2000)
     return data
 
 def plot_images(ct_images, cbct_images):
@@ -45,7 +45,7 @@ def plot_images(ct_images, cbct_images):
 
 
 if __name__ == '__main__':
-    dataset_dir = r'../datasets/thorax-512'
+    dataset_dir = r'../datasets/brain-512'
     trainA_dir = os.path.join(dataset_dir, 'train', 'A')
     trainB_dir = os.path.join(dataset_dir, 'train', 'B')
 
