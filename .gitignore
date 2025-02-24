@@ -10,6 +10,7 @@ __pycache__/
 *.onnx
 *.nii.gz
 
+installer/result/
 datasets/
 test_data/
 .idea/

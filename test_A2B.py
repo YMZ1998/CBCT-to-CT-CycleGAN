@@ -69,8 +69,8 @@ def test_a2b(input_path, output_path):
     parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
-    parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
+    parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='brain', help="The anatomy type")
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
 
     opt = parser.parse_args()
@@ -133,6 +133,6 @@ def test_a2b(input_path, output_path):
 
 
 if __name__ == '__main__':
-    input_path = r'./datasets/thorax-512/test/A'
+    input_path = r'./datasets/brain-512/test/A'
     output_path = r'./test_data/result'
     test_a2b(input_path, output_path)

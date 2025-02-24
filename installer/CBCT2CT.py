@@ -178,7 +178,7 @@ def val_onnx(args):
 
     out_results = np.concatenate(out_results, axis=0)
 
-    predict_path = os.path.join(args.result_path, "predict.nii.gz")
+    predict_path = os.path.join(args.result_path, args.file_name)
 
     save_array_as_nii(out_results, predict_path, origin_cbct)
     total_time = time.time() - start_time
@@ -201,6 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--cbct_path', type=str, default='./dist/test_data/cbct.nii.gz', help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default='../test_data/brain_1/cbct.nii.gz', help="Path to cbct file")
     parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
+    parser.add_argument('--file_name', type=str, default='predict.nii.gz', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
     args = parser.parse_args()
 

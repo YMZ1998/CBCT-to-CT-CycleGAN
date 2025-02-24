@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 
 import SimpleITK as sitk
@@ -108,13 +109,20 @@ class ImageMetrics:
             return float(ssim_value_full)
 
 
-def compute_metrics(origin_ct_path, predict_path):
+def compute_metrics(origin_ct_path, predict_path, mask_path=None):
     metrics = ImageMetrics()
     gt = sitk.ReadImage(origin_ct_path)
     pred = sitk.ReadImage(predict_path)
+    if mask_path is not None:
+        mask = sitk.ReadImage(mask_path)
+        mask_array = sitk.GetArrayFromImage(mask)
+    else:
+        mask_array = None
     gt_array = sitk.GetArrayFromImage(gt)
     pred_array = sitk.GetArrayFromImage(pred)
-    print(metrics.score_patient(gt_array, pred_array, None))
+    metrics = metrics.score_patient(gt_array, pred_array, mask_array)
+    print(metrics)
+    return metrics['mae'], metrics['psnr'], metrics['ssim']
 
 
 def compute_val_metrics():
@@ -122,8 +130,55 @@ def compute_val_metrics():
     # predict_path = origin_ct_path.replace('ct', 'cbct')
     # origin_ct_path = '../test_data/pelvis4.nii.gz'
     predict_path = "../test_data/predict.nii.gz"
-    compute_metrics(origin_ct_path, predict_path)
+    metrics = compute_metrics(origin_ct_path, predict_path)
+    return metrics['mae'], metrics['psnr'], metrics['ssim']
+
+
+def compute_val_metrics2():
+    result_path = "../result"
+    src_path = r"D:\Data\SynthRAD\Task2\brain"
+
+    # 用于存储所有样本的指标
+    mae_list = []
+    psnr_list = []
+    ssim_list = []
+
+    print(len(os.listdir(result_path)))
+
+    for p in os.listdir(result_path)[:20]:
+        print("-" * 100)
+        origin_ct_path = os.path.join(src_path, p, 'ct.nii.gz')
+        mask_path = os.path.join(src_path, p, 'mask.nii.gz')
+        predict_path = os.path.join(result_path, p, 'predict.nii.gz')
+
+        mae, psnr, ssim = compute_metrics(origin_ct_path, predict_path, mask_path)
+        print(mae, psnr, ssim)
+
+        print(f"{p} - MAE: {mae:.4f}, PSNR: {psnr:.4f}, SSIM: {ssim:.4f}")
+        print("-" * 100)
+
+        mae = float(mae)
+        psnr = float(psnr)
+        ssim = float(ssim)
+
+        mae_list.append(mae)
+        psnr_list.append(psnr)
+        ssim_list.append(ssim)
+
+    mae_mean, mae_std = np.mean(mae_list), np.std(mae_list)
+    psnr_mean, psnr_std = np.mean(psnr_list), np.std(psnr_list)
+    ssim_mean, ssim_std = np.mean(ssim_list), np.std(ssim_list)
+
+    print(f"MAE  - Mean: {mae_mean:.4f}, Std Dev: {mae_std:.4f}")
+    print(f"PSNR - Mean: {psnr_mean:.4f}, Std Dev: {psnr_std:.4f}")
+    print(f"SSIM - Mean: {ssim_mean:.4f}, Std Dev: {ssim_std:.4f}")
+
+    return {
+        "MAE": {"mean": mae_mean, "std_dev": mae_std},
+        "PSNR": {"mean": psnr_mean, "std_dev": psnr_std},
+        "SSIM": {"mean": ssim_mean, "std_dev": ssim_std},
+    }
 
 
 if __name__ == '__main__':
-    compute_val_metrics()
+    compute_val_metrics2()
