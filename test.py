@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
-    parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
+    parser.add_argument('--size', type=int, default=512, help='size of the data (squared assumed)')
     parser.add_argument('--cuda', action='store_true', help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
     parser.add_argument('--model_path', type=str, default='checkpoint', help="Path to save model checkpoints")
@@ -28,8 +28,7 @@ if __name__ == '__main__':
     print(opt)
 
     opt.model_path = str(os.path.join(opt.model_path, opt.anatomy))
-    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy))
-
+    opt.dataset_path = str(os.path.join(opt.dataset_path, opt.anatomy+'-'+str(opt.size)))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Networks

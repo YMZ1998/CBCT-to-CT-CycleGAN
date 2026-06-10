@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', type=int, default=1, help='starting epoch')
     parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs of training')
-    parser.add_argument('--batch_size', type=int, default=1, help='size of the batches')
+    parser.add_argument('--batch_size', type=int, default=8, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets', help='root directory of the dataset')
     parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
@@ -32,7 +32,11 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
     parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
-    parser.add_argument('--log', action='store_true', default=True, help='log')
+    parser.add_argument('--log', dest='log', action='store_true', default=True, help='enable Visdom logging')
+    parser.add_argument('--no-log', dest='log', action='store_false', help='disable Visdom logging')
+    parser.add_argument('--visdom_env', type=str, default=None, help='Visdom environment name')
+    parser.add_argument('--visdom_plot_interval', type=int, default=10, help='iterations between Visdom loss updates')
+    parser.add_argument('--visdom_image_interval', type=int, default=10, help='iterations between Visdom image updates')
     opt = parser.parse_args()
     print(opt)
 
@@ -110,7 +114,10 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.n_cpu, drop_last=True)
 
     if opt.log:
-        logger = Logger(opt.n_epochs, len(dataloader))
+        visdom_env = opt.visdom_env or f'cbct2ct-{opt.anatomy}-{opt.size}'
+        logger = Logger(opt.n_epochs, len(dataloader), env=visdom_env, image_size=opt.size,
+                        image_interval=opt.visdom_image_interval, plot_interval=opt.visdom_plot_interval,
+                        start_epoch=opt.epoch)
 
     # 设置生成器额外训练的次数
     n_generator = 2  # 生成器训练次数

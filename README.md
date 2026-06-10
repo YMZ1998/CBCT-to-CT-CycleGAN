@@ -21,7 +21,7 @@ conda env create -f env.yml
 ```
 
 ```bash
-conda activate lj_py
+conda activate cyclegan
 ```
 
 Export env
