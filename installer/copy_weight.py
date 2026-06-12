@@ -5,5 +5,5 @@ src = '../checkpoint'
 dst = './checkpoint'
 os.makedirs(dst, exist_ok=True)
 
-for anatomy in ['chest', 'brain']:
+for anatomy in ['thorax', 'brain']:
     shutil.copy(os.path.join(src, anatomy, 'cbct2ct.onnx'), os.path.join(dst, anatomy+'.onnx'))

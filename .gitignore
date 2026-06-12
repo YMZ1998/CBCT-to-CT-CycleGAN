@@ -12,6 +12,7 @@ __pycache__/
 
 installer/result/
 datasets/
+datasets_synthrad2025/
 test_data/
 .idea/
 # Distribution / packaging
