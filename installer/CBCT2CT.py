@@ -76,6 +76,7 @@ def img_padding(img, x, y, v=0):
 
 def load_data(cbct_path, shape, anatomy):
     origin_cbct = sitk.ReadImage(cbct_path)
+    sitk.WriteImage(origin_cbct, os.path.join(args.result_path, "origin_cbct.nii.gz"))
     cbct_array = sitk.GetArrayFromImage(origin_cbct)
     original_size = origin_cbct.GetSize()
     print("Original size: ", original_size)
@@ -200,6 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
     # parser.add_argument('--cbct_path', type=str, default='./dist/test_data/cbct.nii.gz', help="Path to cbct file")
     parser.add_argument('--cbct_path', type=str, default=r"D:\Data\cbct\denoise_output.mhd", help="Path to cbct file")
+    # parser.add_argument('--cbct_path', type=str, default=r"E:\Data\synthRAD2025_Task2_Train\Task2\TH\2THA005\cbct.mha", help="Path to cbct file")
     parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
     parser.add_argument('--file_name', type=str, default='predict.nii.gz', help="Path to save results")
     # parser.add_argument('--debug', type=bool, default=False, help="Debug options")

@@ -31,6 +31,107 @@ class UNetGenerator(nn.Module):
         return self.model(x)
 
 
+class ResidualConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, norm_layer=nn.InstanceNorm2d):
+        super(ResidualConvBlock, self).__init__()
+        self.shortcut = nn.Identity()
+        if in_channels != out_channels:
+            self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
+
+        self.block = nn.Sequential(
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, bias=False),
+            norm_layer(out_channels),
+            nn.ReLU(True),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, bias=False),
+            norm_layer(out_channels),
+        )
+        self.activation = nn.ReLU(True)
+
+    def forward(self, x):
+        return self.activation(self.block(x) + self.shortcut(x))
+
+
+class DownsampleBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, norm_layer=nn.InstanceNorm2d):
+        super(DownsampleBlock, self).__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=4, stride=2, padding=1, bias=False),
+            norm_layer(out_channels),
+            nn.LeakyReLU(0.2, True),
+            ResidualConvBlock(out_channels, out_channels, norm_layer),
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class UpsampleBlock(nn.Module):
+    def __init__(self, in_channels, skip_channels, out_channels, norm_layer=nn.InstanceNorm2d):
+        super(UpsampleBlock, self).__init__()
+        self.up = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, bias=False),
+            norm_layer(out_channels),
+            nn.ReLU(True),
+        )
+        self.fuse = ResidualConvBlock(out_channels + skip_channels, out_channels, norm_layer)
+
+    def forward(self, x, skip):
+        x = self.up(x)
+        return self.fuse(torch.cat([x, skip], dim=1))
+
+
+class ResUNetGenerator(nn.Module):
+    def __init__(self, input_nc, output_nc, ngf=16, norm_layer=nn.InstanceNorm2d):
+        super(ResUNetGenerator, self).__init__()
+        self.input_nc = input_nc
+        self.output_nc = output_nc
+
+        self.enc1 = ResidualConvBlock(input_nc, ngf, norm_layer)
+        self.enc2 = DownsampleBlock(ngf, ngf * 2, norm_layer)
+        self.enc3 = DownsampleBlock(ngf * 2, ngf * 4, norm_layer)
+        self.enc4 = DownsampleBlock(ngf * 4, ngf * 8, norm_layer)
+        self.enc5 = DownsampleBlock(ngf * 8, ngf * 8, norm_layer)
+
+        self.bottleneck = nn.Sequential(
+            ResidualConvBlock(ngf * 8, ngf * 8, norm_layer),
+            ResidualConvBlock(ngf * 8, ngf * 8, norm_layer),
+        )
+
+        self.dec4 = UpsampleBlock(ngf * 8, ngf * 8, ngf * 8, norm_layer)
+        self.dec3 = UpsampleBlock(ngf * 8, ngf * 4, ngf * 4, norm_layer)
+        self.dec2 = UpsampleBlock(ngf * 4, ngf * 2, ngf * 2, norm_layer)
+        self.dec1 = UpsampleBlock(ngf * 2, ngf, ngf, norm_layer)
+
+        self.out = nn.Sequential(
+            nn.ReflectionPad2d(1),
+            nn.Conv2d(ngf, output_nc, kernel_size=3),
+        )
+
+        init_weights(self)
+
+    def forward(self, x):
+        e1 = self.enc1(x)
+        e2 = self.enc2(e1)
+        e3 = self.enc3(e2)
+        e4 = self.enc4(e3)
+        e5 = self.enc5(e4)
+
+        z = self.bottleneck(e5)
+        d4 = self.dec4(z, e4)
+        d3 = self.dec3(d4, e3)
+        d2 = self.dec2(d3, e2)
+        d1 = self.dec1(d2, e1)
+
+        residual = self.out(d1)
+        if self.input_nc == self.output_nc:
+            return torch.tanh(x + residual)
+        return torch.tanh(residual)
+
+
 class UNetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc, input_nc=None,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.InstanceNorm2d):
@@ -118,10 +219,10 @@ class PatchGANDiscriminator(nn.Module):
 
 
 class SpectralNormDiscriminator(nn.Module):
-    def __init__(self, input_nc, ndf=64):
+    def __init__(self, input_nc, ndf=64, use_dropout=False):
         super(SpectralNormDiscriminator, self).__init__()
 
-        self.model = nn.Sequential(
+        model = [
             nn.utils.spectral_norm(nn.Conv2d(input_nc, ndf, kernel_size=4, stride=2, padding=1)),
             nn.LeakyReLU(0.2, True),
 
@@ -136,11 +237,16 @@ class SpectralNormDiscriminator(nn.Module):
             nn.utils.spectral_norm(nn.Conv2d(ndf * 4, ndf * 8, kernel_size=4, stride=1, padding=1)),
             nn.InstanceNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, True),
+        ]
 
-            nn.Dropout2d(0.5),
+        if use_dropout:
+            model.append(nn.Dropout2d(0.5))
 
+        model += [
             nn.utils.spectral_norm(nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=1, padding=1))
-        )
+        ]
+
+        self.model = nn.Sequential(*model)
 
         init_weights(self)
 

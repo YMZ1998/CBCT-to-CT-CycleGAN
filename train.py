@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from dataset import NpyDataset
-from network.unet import UNetGenerator, SpectralNormDiscriminator
+from network.unet import ResUNetGenerator, UNetGenerator, SpectralNormDiscriminator
 from utils.losses import CycleLoss
 from utils.utils import ReplayBuffer, LambdaLR, Logger
 
@@ -32,16 +32,22 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=512, help='size of the data crop (squared assumed)')
     parser.add_argument('--input_nc', type=int, default=1, help='number of channels of input data')
     parser.add_argument('--output_nc', type=int, default=1, help='number of channels of output data')
+    parser.add_argument('--generator', choices=['resunet', 'unet'], default='resunet', help='generator architecture')
+    parser.add_argument('--ngf', type=int, default=16, help='base number of generator filters')
+    parser.add_argument('--ndf', type=int, default=64, help='base number of discriminator filters')
+    parser.add_argument('--disc_dropout', action='store_true', default=False, help='enable discriminator dropout')
     parser.add_argument('--cuda', dest='cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='use CPU computation')
     parser.add_argument('--n_cpu', type=int, default=4, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=1, help='resume from previous checkpoint')
     parser.add_argument('--unaligned', action='store_true', default=False, help='sample B independently from A')
     parser.add_argument('--augment', action='store_true', default=False, help='enable resize/crop/flip augmentation')
     parser.add_argument('--replay_buffer_size', type=int, default=50, help='number of generated samples to cache')
     parser.add_argument('--n_generator', type=int, default=2, help='generator update steps per batch')
     parser.add_argument('--max_batches', type=int, default=0, help='limit batches per epoch, 0 means no limit')
     parser.add_argument('--skip_save', action='store_true', default=False, help='skip checkpoint saving')
+    parser.add_argument('--amp', dest='amp', action='store_true', default=True, help='use CUDA mixed precision')
+    parser.add_argument('--no-amp', dest='amp', action='store_false', help='disable CUDA mixed precision')
     parser.add_argument('--log', dest='log', action='store_true', default=True, help='enable Visdom logging')
     parser.add_argument('--no-log', dest='log', action='store_false', help='disable Visdom logging')
     parser.add_argument('--visdom_env', type=str, default=None, help='Visdom environment name')
@@ -52,7 +58,7 @@ if __name__ == '__main__':
 
     dataset_root = Path(opt.dataset_path)
     dataset_name = opt.dataset_name or f'{opt.anatomy}-{opt.size}'
-    experiment_name = opt.experiment_name or f'{dataset_root.name}-{dataset_name}'
+    experiment_name = opt.experiment_name or f'{dataset_root.name}-{dataset_name}-{opt.generator}-ngf{opt.ngf}'
 
     opt.dataset_path = str(dataset_root / dataset_name)
     opt.model_path = str(Path(opt.model_path) / experiment_name)
@@ -67,13 +73,21 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if opt.cuda and torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    use_amp = opt.amp and device.type == 'cuda'
+    amp_device = device.type
+    scaler = torch.amp.GradScaler(amp_device, enabled=use_amp, init_scale=1024.0)
+    print(f"Using AMP: {use_amp}")
 
     ###### Definition of variables ######
     # Networks
-    netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc).to(device)
-    netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc).to(device)
-    netD_A = SpectralNormDiscriminator(opt.input_nc).to(device)
-    netD_B = SpectralNormDiscriminator(opt.output_nc).to(device)
+    if opt.generator == 'resunet':
+        netG_A2B = ResUNetGenerator(opt.input_nc, opt.output_nc, ngf=opt.ngf).to(device)
+        netG_B2A = ResUNetGenerator(opt.output_nc, opt.input_nc, ngf=opt.ngf).to(device)
+    else:
+        netG_A2B = UNetGenerator(opt.input_nc, opt.output_nc, ngf=opt.ngf).to(device)
+        netG_B2A = UNetGenerator(opt.output_nc, opt.input_nc, ngf=opt.ngf).to(device)
+    netD_A = SpectralNormDiscriminator(opt.input_nc, ndf=opt.ndf, use_dropout=opt.disc_dropout).to(device)
+    netD_B = SpectralNormDiscriminator(opt.output_nc, ndf=opt.ndf, use_dropout=opt.disc_dropout).to(device)
 
     # netG_A2B.apply(weights_init_normal)
     # netG_B2A.apply(weights_init_normal)
@@ -118,9 +132,11 @@ if __name__ == '__main__':
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
 
-    target_size = int(opt.size // 8 - 2)
-    target_real = torch.full((opt.batch_size, 1, target_size, target_size), 0.9, device=device, dtype=torch.float32)
-    target_fake = torch.full((opt.batch_size, 1, target_size, target_size), 0.1, device=device, dtype=torch.float32)
+    def real_target(prediction):
+        return torch.full_like(prediction, 0.9)
+
+    def fake_target(prediction):
+        return torch.full_like(prediction, 0.1)
 
     fake_A_buffer = ReplayBuffer(max_size=opt.replay_buffer_size)
     fake_B_buffer = ReplayBuffer(max_size=opt.replay_buffer_size)
@@ -160,75 +176,85 @@ if __name__ == '__main__':
             input_B = real_B.detach().clone()
 
             ###### 训练判别器 A ######
-            optimizer_D_A.zero_grad()
+            optimizer_D_A.zero_grad(set_to_none=True)
 
-            # Real loss
-            pred_real = netD_A(real_A)
-            loss_D_real = criterion_GAN(pred_real, target_real)
+            with torch.amp.autocast(amp_device, enabled=use_amp):
+                # Real loss
+                pred_real = netD_A(real_A)
+                loss_D_real = criterion_GAN(pred_real, real_target(pred_real))
 
             # Fake loss
-            fake_A = netG_B2A(real_B).detach()
+            with torch.no_grad():
+                fake_A = netG_B2A(real_B)
             fake_A = fake_A_buffer.push_and_pop(fake_A)
-            pred_fake = netD_A(fake_A)
-            loss_D_fake = criterion_GAN(pred_fake, target_fake)
+            with torch.amp.autocast(amp_device, enabled=use_amp):
+                pred_fake = netD_A(fake_A)
+                loss_D_fake = criterion_GAN(pred_fake, fake_target(pred_fake))
 
-            # Total loss
-            loss_D_A = (loss_D_real + loss_D_fake) * 0.5
-            loss_D_A.backward()
-            optimizer_D_A.step()
+                # Total loss
+                loss_D_A = (loss_D_real + loss_D_fake) * 0.5
+            scaler.scale(loss_D_A).backward()
+            scaler.step(optimizer_D_A)
+            scaler.update()
 
             ###### 训练判别器 B ######
-            optimizer_D_B.zero_grad()
+            optimizer_D_B.zero_grad(set_to_none=True)
 
-            # Real loss
-            pred_real = netD_B(real_B)
-            loss_D_real = criterion_GAN(pred_real, target_real)
+            with torch.amp.autocast(amp_device, enabled=use_amp):
+                # Real loss
+                pred_real = netD_B(real_B)
+                loss_D_real = criterion_GAN(pred_real, real_target(pred_real))
 
             # Fake loss
-            fake_B = netG_A2B(real_A).detach()
+            with torch.no_grad():
+                fake_B = netG_A2B(real_A)
             fake_B = fake_B_buffer.push_and_pop(fake_B)
-            pred_fake = netD_B(fake_B)
-            loss_D_fake = criterion_GAN(pred_fake, target_fake)
+            with torch.amp.autocast(amp_device, enabled=use_amp):
+                pred_fake = netD_B(fake_B)
+                loss_D_fake = criterion_GAN(pred_fake, fake_target(pred_fake))
 
-            # Total loss
-            loss_D_B = (loss_D_real + loss_D_fake) * 0.5
-            loss_D_B.backward()
-            optimizer_D_B.step()
+                # Total loss
+                loss_D_B = (loss_D_real + loss_D_fake) * 0.5
+            scaler.scale(loss_D_B).backward()
+            scaler.step(optimizer_D_B)
+            scaler.update()
 
             ###### 让生成器多训练 opt.n_generator 次 ######
             for _ in range(opt.n_generator):
-                optimizer_G.zero_grad()
+                optimizer_G.zero_grad(set_to_none=True)
 
-                # Identity loss
-                same_B = netG_A2B(real_B)
-                loss_identity_B = criterion_identity(same_B, real_B) * lambda_identity
-                same_A = netG_B2A(real_A)
-                loss_identity_A = criterion_identity(same_A, real_A) * lambda_identity
+                with torch.amp.autocast(amp_device, enabled=use_amp):
+                    # Identity loss
+                    same_B = netG_A2B(real_B)
+                    loss_identity_B = criterion_identity(same_B, real_B) * lambda_identity
+                    same_A = netG_B2A(real_A)
+                    loss_identity_A = criterion_identity(same_A, real_A) * lambda_identity
 
-                # GAN loss
-                fake_B = netG_A2B(real_A)
-                pred_fake = netD_B(fake_B)
-                loss_GAN_A2B = criterion_GAN(pred_fake, target_real) * lambda_GAN
+                    # GAN loss
+                    fake_B = netG_A2B(real_A)
+                    pred_fake = netD_B(fake_B)
+                    loss_GAN_A2B = criterion_GAN(pred_fake, real_target(pred_fake)) * lambda_GAN
 
-                fake_A = netG_B2A(real_B)
-                pred_fake = netD_A(fake_A)
-                loss_GAN_B2A = criterion_GAN(pred_fake, target_real) * lambda_GAN
+                    fake_A = netG_B2A(real_B)
+                    pred_fake = netD_A(fake_A)
+                    loss_GAN_B2A = criterion_GAN(pred_fake, real_target(pred_fake)) * lambda_GAN
 
-                # Cycle loss
-                recovered_A = netG_B2A(fake_B)
-                loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * lambda_cycle
+                    # Cycle loss
+                    recovered_A = netG_B2A(fake_B)
+                    loss_cycle_ABA = criterion_cycle(recovered_A, real_A) * lambda_cycle
 
-                recovered_B = netG_A2B(fake_A)
-                loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
+                    recovered_B = netG_A2B(fake_A)
+                    loss_cycle_BAB = criterion_cycle(recovered_B, real_B) * lambda_cycle
 
-                # Total loss
-                loss_G = (
-                    loss_identity_A + loss_identity_B +
-                    loss_GAN_A2B + loss_GAN_B2A +
-                    loss_cycle_ABA + loss_cycle_BAB
-                )
-                loss_G.backward()
-                optimizer_G.step()
+                    # Total loss
+                    loss_G = (
+                        loss_identity_A + loss_identity_B +
+                        loss_GAN_A2B + loss_GAN_B2A +
+                        loss_cycle_ABA + loss_cycle_BAB
+                    )
+                scaler.scale(loss_G).backward()
+                scaler.step(optimizer_G)
+                scaler.update()
 
                 train_losses.append(loss_G.item())
 

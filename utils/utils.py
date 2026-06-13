@@ -9,6 +9,7 @@ from torch import nn
 from torch.autograd import Variable
 import torch
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 try:
     from visdom import Visdom
@@ -22,6 +23,28 @@ def tensor2image(tensor):
     if image.shape[0] == 1:
         image = np.tile(image, (3, 1, 1))
     return image.astype(np.uint8)
+
+
+def draw_label(image, label):
+    image_hwc = np.transpose(image, (1, 2, 0))
+    pil_image = Image.fromarray(image_hwc)
+    draw = ImageDraw.Draw(pil_image)
+    font_size = max(18, min(image_hwc.shape[:2]) // 22)
+    try:
+        font = ImageFont.truetype('arial.ttf', font_size)
+    except OSError:
+        font = ImageFont.load_default()
+
+    padding = max(6, font_size // 3)
+    text_bbox = draw.textbbox((0, 0), label, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    draw.rectangle(
+        (0, 0, text_width + padding * 2, text_height + padding * 2),
+        fill=(0, 0, 0),
+    )
+    draw.text((padding, padding), label, fill=(255, 255, 255), font=font)
+    return np.transpose(np.asarray(pil_image), (2, 0, 1))
 
 
 class Logger():
@@ -42,9 +65,17 @@ class Logger():
         self.losses = {}
         self.loss_names = []
         self.loss_window = 'losses'
-        self.image_window = 'samples'
+        self.a2b_image_window = 'samples_a2b'
+        self.b2a_image_window = 'samples_b2a'
         self.status_window = 'status'
+        self.image_labels = {
+            'real_A': 'real_A | CBCT input',
+            'fake_B': 'fake_B | pseudo CT',
+            'real_B': 'real_B | CT target',
+            'fake_A': 'fake_A | pseudo CBCT',
+        }
         self.loss_window_initialized = False
+        self.image_windows_initialized = set()
         self.enabled = False
 
         if Visdom is None:
@@ -96,33 +127,48 @@ class Logger():
             'ylabel': 'Loss',
             'legend': self.loss_names,
             'showlegend': True,
-            'width': 900,
-            'height': 420,
         }
 
         if self.loss_window_initialized:
-            self.viz.line(X=x, Y=y, win=self.loss_window, update='append', opts=opts)
+            self.viz.line(X=x, Y=y, win=self.loss_window, update='append')
         else:
             self.viz.line(X=x, Y=y, win=self.loss_window, opts=opts)
             self.loss_window_initialized = True
 
-    def _show_images(self, images):
-        ordered = self._ordered_images(images)
-        if not ordered:
+    def _show_image_pair(self, window, title, names, images):
+        pairs = [(name, images[name]) for name in names if name in images]
+        if not pairs:
             return
 
-        image_batch = np.stack([tensor2image(tensor) for _, tensor in ordered], axis=0)
-        caption = ' | '.join(name for name, _ in ordered)
-        self.viz.images(
-            image_batch,
-            nrow=min(len(ordered), 4),
-            win=self.image_window,
-            opts={
-                'title': 'Samples: real_A -> fake_B | real_B -> fake_A',
-                'caption': caption,
-                'width': self.image_size,
-                'height': self.image_size,
+        image_batch = np.stack([
+            draw_label(tensor2image(tensor), self.image_labels.get(name, name))
+            for name, tensor in pairs
+        ], axis=0)
+        opts = None
+        if window not in self.image_windows_initialized:
+            opts = {
+                'title': title,
+                'caption': ' | '.join(self.image_labels.get(name, name) for name, _ in pairs),
             }
+            self.image_windows_initialized.add(window)
+
+        if opts:
+            self.viz.images(image_batch, nrow=len(pairs), win=window, opts=opts)
+        else:
+            self.viz.images(image_batch, nrow=len(pairs), win=window)
+
+    def _show_images(self, images):
+        self._show_image_pair(
+            self.a2b_image_window,
+            'A2B: CBCT real_A -> pseudo CT fake_B',
+            ['real_A', 'fake_B'],
+            images,
+        )
+        self._show_image_pair(
+            self.b2a_image_window,
+            'B2A: CT real_B -> pseudo CBCT fake_A',
+            ['real_B', 'fake_A'],
+            images,
         )
 
     def _show_status(self, averaged_losses, eta):
