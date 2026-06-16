@@ -1,86 +1,76 @@
 import argparse
 import os
-import shutil
-import sys
 import time
 
-import numpy as np
-import onnxruntime
-from tqdm import tqdm
+from installer.CBCT2CT import (
+    DEFAULT_IMAGE_SIZES,
+    create_session,
+    get_session_image_size,
+    infer_volume,
+    load_data,
+    resolve_onnx_path,
+    save_array_as_nii,
+)
 
-from installer.CBCT2CT import load_data, post_process, save_array_as_nii
 
-def remove_and_create_dir(path):
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
+def find_cbct_file(case_dir):
+    for file_name in ('cbct.nii.gz', 'cbct.mha', 'cbct.nii', 'cbct.mhd'):
+        cbct_path = os.path.join(case_dir, file_name)
+        if os.path.exists(cbct_path):
+            return cbct_path
+    return None
 
 
 def val_onnx_files(args):
-    args.image_size = 512
-    if args.anatomy == 'brain':
-        args.image_size = 256
-    # args.onnx_path = os.path.join(args.onnx_path, 'cbct2ct.onnx')
-    args.onnx_path = os.path.join(args.onnx_path, f'{args.anatomy}.onnx')
-    assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
+    args.onnx_path = resolve_onnx_path(args.onnx_path, args.anatomy)
+    assert os.path.exists(args.cbct_path), f"CBCT directory does not exist at {args.cbct_path}"
+    assert os.path.exists(args.onnx_path), f"Onnx file does not exist at {args.onnx_path}"
     print(f"Onnx path: {args.onnx_path}")
 
-    session = onnxruntime.InferenceSession(args.onnx_path)
+    session = create_session(args.onnx_path, args.provider)
+    fallback_size = args.image_size or DEFAULT_IMAGE_SIZES[args.anatomy]
+    args.image_size = get_session_image_size(session, fallback_size)
     shape = [args.image_size, args.image_size]
 
-    # os.makedirs(args.result_path, exist_ok=True)
-    remove_and_create_dir(args.result_path)
+    os.makedirs(args.result_path, exist_ok=True)
 
-    for p in os.listdir(args.cbct_path):
-        cbct_path = os.path.join(args.cbct_path, p, 'cbct.nii.gz')
+    for case_name in sorted(os.listdir(args.cbct_path)):
+        case_dir = os.path.join(args.cbct_path, case_name)
+        if not os.path.isdir(case_dir):
+            continue
 
-        cbct_padded, img_location, origin_cbct = load_data(cbct_path, shape, args.anatomy)
+        cbct_path = find_cbct_file(case_dir)
+        if cbct_path is None:
+            print(f"Skip {case_name}: no cbct image found")
+            continue
 
-        length = len(cbct_padded)
-        cbct_vecs, location_vecs = [], []
-        for index in range(length):
-            cbct_vecs.append(cbct_padded[index])
-            location_vecs.append(img_location)
-        cbct_batch = np.array(cbct_vecs[:]).astype(np.float32)
-        locations_batch = np.concatenate(location_vecs[:], axis=0).astype(np.float32)
+        case_result_dir = os.path.join(args.result_path, case_name)
+        os.makedirs(case_result_dir, exist_ok=True)
+        debug_dir = case_result_dir if args.debug else None
+
+        cbct_padded, img_location, origin_cbct = load_data(cbct_path, shape, args.anatomy, debug_dir=debug_dir)
 
         start_time = time.time()
+        out_results = infer_volume(session, cbct_padded, img_location, origin_cbct, args.anatomy)
 
-        out_results = []
-        min_v = -1000
-        max_v = 2000
-
-        for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
-            cbct = np.expand_dims(cbct, 0)
-            cbct = np.expand_dims(cbct, 0)
-            output_name = session.get_outputs()[0].name
-            ort_inputs = {session.get_inputs()[0].name: (cbct)}
-
-            result = session.run([output_name], ort_inputs)[0]
-
-            out_cal = post_process(result, image_locations, origin_cbct.GetSize(), min_v, max_v)
-
-            out_results.append(np.expand_dims(out_cal, axis=0))
-
-        out_results = np.concatenate(out_results, axis=0)
-
-        os.makedirs(os.path.join(args.result_path, p), exist_ok=True)
-        predict_path = os.path.join(args.result_path, p, "predict.nii.gz")
-
+        predict_path = os.path.join(case_result_dir, "predict.nii.gz")
         save_array_as_nii(out_results, predict_path, origin_cbct)
         total_time = time.time() - start_time
-        print("time {}s".format(total_time))
+        print(f"{case_name}: saved {predict_path}, time {total_time}s")
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        prog='CBCT2CT.py',
-        usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
-        description="CBCT generates pseudo CT.")
-    parser.add_argument('--onnx_path', type=str, default='./installer/checkpoint', help="Path to onnx")
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='brain', help="The anatomy type")
-    parser.add_argument('--cbct_path', type=str, default=r'D:\Data\SynthRAD\Task2\brain', help="Path to cbct file")
+        prog='evaluation.py',
+        usage='%(prog)s [options] --cbct_path <directory> --result_path <directory>',
+        description="Run CBCT-to-CT ONNX inference for a directory of cases.")
+    parser.add_argument('--onnx_path', type=str, default='./installer/checkpoint', help="Path to onnx file or directory")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
+    parser.add_argument('--cbct_path', type=str, default=r'D:\Data\SynthRAD\Task2\brain', help="Path to case directory")
     parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
+    parser.add_argument('--image_size', type=int, default=None, help="Fallback image size if ONNX input is dynamic")
+    parser.add_argument('--provider', choices=['auto', 'cpu', 'cuda'], default='auto', help="ONNXRuntime provider")
+    parser.add_argument('--debug', action='store_true', help="Save intermediate debug images")
     args = parser.parse_args()
 
     print(args)

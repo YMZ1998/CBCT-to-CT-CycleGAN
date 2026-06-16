@@ -13,10 +13,10 @@ from tqdm import tqdm
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Prepare synthRAD Task2 MHA data for CycleGAN training.')
-    parser.add_argument('--input_dir', type=Path, required=True, help='Folder containing case directories.')
+    parser.add_argument('--input_dir', type=Path, default=r"E:\Data\synthRAD2025_Task2_Train\Task2\AB", help='Folder containing case directories.')
     parser.add_argument('--output_root', type=Path, default=Path('datasets_synthrad2025'),
                         help='Output root. Dataset is written under <output_root>/<dataset_name>.')
-    parser.add_argument('--dataset_name', type=str, default='thorax-512', help='Output dataset folder name.')
+    parser.add_argument('--dataset_name', type=str, default='abdomen-512', help='Output dataset folder name.')
     parser.add_argument('--size', type=int, default=512, help='Output axial slice size.')
     parser.add_argument('--train_ratio', type=float, default=0.8, help='Patient-level train split ratio.')
     parser.add_argument('--seed', type=int, default=2025, help='Random seed for patient split.')

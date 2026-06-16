@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 import sys
 import time
 
@@ -10,6 +9,71 @@ import numpy as np
 import onnxruntime
 from tqdm import tqdm
 
+ANATOMY_HU_RANGES = {
+    'pelvis': (-800, 1500),
+    'thorax': (-800, 1500),
+    'brain': (-1000, 2000),
+}
+
+DEFAULT_IMAGE_SIZES = {
+    'pelvis': 512,
+    'thorax': 512,
+    'brain': 256,
+}
+
+
+def get_hu_range(anatomy):
+    try:
+        return ANATOMY_HU_RANGES[anatomy]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported anatomy: {anatomy}") from exc
+
+
+def resolve_onnx_path(onnx_path, anatomy):
+    if os.path.isdir(onnx_path):
+        return os.path.join(onnx_path, f'{anatomy}.onnx')
+    return onnx_path
+
+
+def select_providers(provider):
+    available = onnxruntime.get_available_providers()
+
+    if provider == 'cpu':
+        return ['CPUExecutionProvider']
+
+    if provider == 'cuda':
+        if 'CUDAExecutionProvider' not in available:
+            raise RuntimeError(f"CUDAExecutionProvider is not available. Available providers: {available}")
+        providers = ['CUDAExecutionProvider']
+        if 'CPUExecutionProvider' in available:
+            providers.append('CPUExecutionProvider')
+        return providers
+
+    if 'CUDAExecutionProvider' in available:
+        providers = ['CUDAExecutionProvider']
+        if 'CPUExecutionProvider' in available:
+            providers.append('CPUExecutionProvider')
+        return providers
+
+    return ['CPUExecutionProvider']
+
+
+def create_session(onnx_path, provider='auto'):
+    providers = select_providers(provider)
+    session = onnxruntime.InferenceSession(onnx_path, providers=providers)
+    print("ONNX providers: ", session.get_providers())
+    return session
+
+
+def get_session_image_size(session, fallback_size):
+    input_shape = session.get_inputs()[0].shape
+    height, width = input_shape[2], input_shape[3]
+    if isinstance(height, int) and isinstance(width, int):
+        if height != width:
+            raise ValueError(f"Only square ONNX inputs are supported, got {input_shape}")
+        return height
+    return fallback_size
+
 
 def post_process(out, location, original_size, min_v=-1000, max_v=2000):
     out = np.squeeze(out)
@@ -18,7 +82,6 @@ def post_process(out, location, original_size, min_v=-1000, max_v=2000):
         max_shape = max(original_size[0], original_size[1])
         if max_shape > out.shape[0] or max_shape > out.shape[1]:
             out = cv2.resize(out, [max_shape, max_shape], interpolation=cv2.INTER_LINEAR)
-            # sitk.WriteImage(sitk.GetImageFromArray(out), os.path.join(args.result_path, "out_resampled.nii.gz"))
 
     out = (out + 1) / 2
     out = out * (max_v - min_v) + min_v
@@ -27,9 +90,7 @@ def post_process(out, location, original_size, min_v=-1000, max_v=2000):
     y_min, x_min = int(location[1]), int(location[0])
     y_max, x_max = y_min + int(location[3]), x_min + int(location[2])
 
-    out = out[y_min:y_max, x_min:x_max]
-
-    return out
+    return out[y_min:y_max, x_min:x_max]
 
 
 def save_array_as_nii(array, file_path, reference=None):
@@ -41,21 +102,13 @@ def save_array_as_nii(array, file_path, reference=None):
 
 
 def img_normalize(img, anatomy):
-    if anatomy == 'pelvis':
-        min_v = -800
-        max_v = 1500
-    elif anatomy == 'thorax':
-        min_v = -800
-        max_v = 1500
-    elif anatomy == 'brain':
-        min_v = -1000
-        max_v = 2000
+    min_v, max_v = get_hu_range(anatomy)
     img = np.clip(img, min_v, max_v)
 
     min_value = np.min(img)
     max_value = np.max(img)
     print("min_value: ", min_value, "max_value: ", max_value)
-    # img = (img - min_value) / (max_value - min_value)
+
     img = (img - min_v) / (max_v - min_v)
     img = img * 2 - 1
     return img
@@ -74,9 +127,12 @@ def img_padding(img, x, y, v=0):
     return padded_img, img_location
 
 
-def load_data(cbct_path, shape, anatomy):
+def load_data(cbct_path, shape, anatomy, debug_dir=None):
     origin_cbct = sitk.ReadImage(cbct_path)
-    sitk.WriteImage(origin_cbct, os.path.join(args.result_path, "origin_cbct.nii.gz"))
+    if debug_dir:
+        os.makedirs(debug_dir, exist_ok=True)
+        sitk.WriteImage(origin_cbct, os.path.join(debug_dir, "origin_cbct.nii.gz"))
+
     cbct_array = sitk.GetArrayFromImage(origin_cbct)
     original_size = origin_cbct.GetSize()
     print("Original size: ", original_size)
@@ -86,37 +142,34 @@ def load_data(cbct_path, shape, anatomy):
     if int(np.min(cbct_array)) == 0:
         cbct_array = cbct_array - 1000
 
-    # 如果CBCT尺寸大于目标尺寸，进行重采样
     if cbct_array.shape[1] > shape[0] or cbct_array.shape[2] > shape[1]:
         print("Resampling CBCT...")
         max_shape = max(cbct_array.shape[1], cbct_array.shape[2])
-        # print("Max shape: ", max_shape)
-        # print(np.min(cbct_array))
         cbct_array, img_location = img_padding(cbct_array, max_shape, max_shape, np.min(cbct_array))
         padding_cbct = sitk.GetImageFromArray(cbct_array)
         padding_cbct.SetSpacing(original_spacing)
-        # sitk.WriteImage(padding_cbct, os.path.join(args.result_path, "padding_cbct.nii.gz"))
+        padding_cbct.SetOrigin(origin_cbct.GetOrigin())
+        padding_cbct.SetDirection(origin_cbct.GetDirection())
 
-        # 计算新的spacing保持物理尺寸一致
+        # Keep the in-plane physical size consistent after resizing.
         new_spacing = [
             original_spacing[0] * cbct_array.shape[1] / shape[0],
             original_spacing[1] * cbct_array.shape[2] / shape[1],
-            original_spacing[2]  # Z轴不变
+            original_spacing[2],
         ]
 
         resampler = sitk.ResampleImageFilter()
         resampler.SetSize([shape[0], shape[1], cbct_array.shape[0]])
         resampler.SetOutputSpacing(new_spacing)
+        resampler.SetOutputOrigin(padding_cbct.GetOrigin())
+        resampler.SetOutputDirection(padding_cbct.GetDirection())
         resampler.SetInterpolator(sitk.sitkLinear)
         cbct_resampled = resampler.Execute(padding_cbct)
 
         cbct_array = sitk.GetArrayFromImage(cbct_resampled)
         print("Resampled cbct shape: ", cbct_array.shape)
         print("New spacing: ", new_spacing)
-        # sitk.WriteImage(cbct_resampled, os.path.join(args.result_path, "resample_cbct.nii.gz"))
-
         cbct_array = img_normalize(cbct_array, anatomy)
-
     else:
         cbct_array = img_normalize(cbct_array, anatomy)
         cbct_array, img_location = img_padding(cbct_array, shape[0], shape[1], -1)
@@ -124,89 +177,68 @@ def load_data(cbct_path, shape, anatomy):
     return cbct_array, img_location, origin_cbct
 
 
-def val_onnx(args):
-    args.image_size = 512
-    if args.anatomy == 'brain':
-        args.image_size = 256
-    # args.onnx_path = os.path.join(args.onnx_path, 'cbct2ct.onnx')
-    args.onnx_path = os.path.join(args.onnx_path, f'{args.anatomy}.onnx')
-    assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
-    print(f"Onnx path: {args.onnx_path}")
-    shape = [args.image_size, args.image_size]
-
-    os.makedirs(args.result_path, exist_ok=True)
-    assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
-    assert os.path.exists(args.onnx_path), f"Onnx file does not exist at {args.onnx_path}"
-
-    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, shape, args.anatomy)
-
-    length = len(cbct_padded)
-    cbct_vecs, location_vecs = [], []
-    for index in range(length):
-        cbct_vecs.append(cbct_padded[index])
-        location_vecs.append(img_location)
-    cbct_batch = np.array(cbct_vecs[:]).astype(np.float32)
-    locations_batch = np.concatenate(location_vecs[:], axis=0).astype(np.float32)
-
-    session = onnxruntime.InferenceSession(args.onnx_path)
-
-    # providers = [
-    #     'CUDAExecutionProvider',
-    #     'TensorrtExecutionProvider',
-    #     'CPUExecutionProvider'
-    # ]
-    #
-    # session = onnxruntime.InferenceSession(args.onnx_path, providers=providers)
-    # print(onnxruntime.get_available_providers())
-
-    start_time = time.time()
+def infer_volume(session, cbct_padded, img_location, origin_cbct, anatomy):
+    output_name = session.get_outputs()[0].name
+    input_name = session.get_inputs()[0].name
+    min_v, max_v = get_hu_range(anatomy)
 
     out_results = []
-    min_v = -1000
-    max_v = 2000
-
-    for cbct, image_locations in tqdm(zip(cbct_batch, locations_batch), total=len(cbct_batch), file=sys.stdout):
+    image_location = np.squeeze(img_location).astype(np.float32)
+    for cbct in tqdm(cbct_padded.astype(np.float32), total=len(cbct_padded), file=sys.stdout):
         cbct = np.expand_dims(cbct, 0)
         cbct = np.expand_dims(cbct, 0)
-        output_name = session.get_outputs()[0].name
-        ort_inputs = {session.get_inputs()[0].name: (cbct)}
-
-        result = session.run([output_name], ort_inputs)[0]
-
-        out_cal = post_process(result, image_locations, origin_cbct.GetSize(), min_v, max_v)
-
+        result = session.run([output_name], {input_name: cbct})[0]
+        out_cal = post_process(result, image_location, origin_cbct.GetSize(), min_v, max_v)
         out_results.append(np.expand_dims(out_cal, axis=0))
 
     out_results = np.concatenate(out_results, axis=0)
+    expected_shape = (origin_cbct.GetSize()[2], origin_cbct.GetSize()[1], origin_cbct.GetSize()[0])
+    if out_results.shape != expected_shape:
+        raise ValueError(f"Output shape {out_results.shape} does not match input image shape {expected_shape}")
+    return out_results
+
+
+def val_onnx(args):
+    args.onnx_path = resolve_onnx_path(args.onnx_path, args.anatomy)
+    assert os.path.exists(args.cbct_path), f"CBCT file does not exist at {args.cbct_path}"
+    assert os.path.exists(args.onnx_path), f"Onnx file does not exist at {args.onnx_path}"
+
+    print(f"Onnx path: {args.onnx_path}")
+    session = create_session(args.onnx_path, getattr(args, 'provider', 'auto'))
+    fallback_size = getattr(args, 'image_size', None) or DEFAULT_IMAGE_SIZES[args.anatomy]
+    args.image_size = get_session_image_size(session, fallback_size)
+    shape = [args.image_size, args.image_size]
+
+    os.makedirs(args.result_path, exist_ok=True)
+    debug_dir = args.result_path if getattr(args, 'debug', False) else None
+    cbct_padded, img_location, origin_cbct = load_data(args.cbct_path, shape, args.anatomy, debug_dir=debug_dir)
+
+    start_time = time.time()
+    out_results = infer_volume(session, cbct_padded, img_location, origin_cbct, args.anatomy)
 
     predict_path = os.path.join(args.result_path, args.file_name)
-
     save_array_as_nii(out_results, predict_path, origin_cbct)
     total_time = time.time() - start_time
+    print(f"Saved prediction: {predict_path}")
     print("time {}s".format(total_time))
-
-
-def remove_and_create_dir(path):
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         prog='CBCT2CT.py',
-        usage='%(prog)s [options] --cbct_path <path> --mask_path <path> --result_path <path>',
+        usage='%(prog)s [options] --cbct_path <path> --result_path <path>',
         description="CBCT generates pseudo CT.")
-    parser.add_argument('--onnx_path', type=str, default='./checkpoint', help="Path to onnx")
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
+    parser.add_argument('--onnx_path', type=str, default='./checkpoint', help="Path to onnx file or directory")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='pelvis', help="The anatomy type")
     # parser.add_argument('--cbct_path', type=str, default='./dist/test_data/cbct.nii.gz', help="Path to cbct file")
     parser.add_argument('--cbct_path', type=str, default=r"D:\Data\cbct\denoise_output.mhd", help="Path to cbct file")
     # parser.add_argument('--cbct_path', type=str, default=r"E:\Data\synthRAD2025_Task2_Train\Task2\TH\2THA005\cbct.mha", help="Path to cbct file")
     parser.add_argument('--result_path', type=str, default='./result', help="Path to save results")
-    parser.add_argument('--file_name', type=str, default='predict.nii.gz', help="Path to save results")
-    # parser.add_argument('--debug', type=bool, default=False, help="Debug options")
+    parser.add_argument('--file_name', type=str, default='predict.nii.gz', help="Prediction file name")
+    parser.add_argument('--image_size', type=int, default=None, help="Fallback image size if ONNX input is dynamic")
+    parser.add_argument('--provider', choices=['auto', 'cpu', 'cuda'], default='auto', help="ONNXRuntime provider")
+    parser.add_argument('--debug', action='store_true', default=True, help="Save intermediate debug images")
     args = parser.parse_args()
 
-    # args.onnx_path = str(os.path.join(args.onnx_path, args.anatomy))
     print(args)
     val_onnx(args)

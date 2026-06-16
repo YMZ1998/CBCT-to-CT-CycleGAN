@@ -16,7 +16,7 @@ from network.unet import ResUNetGenerator, UNetGenerator
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Export CBCT-to-CT generator checkpoint to ONNX.')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help='anatomy type')
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='pelvis', help='anatomy type')
     parser.add_argument('--size', type=int, default=512, help='fixed square input size')
     parser.add_argument('--input_nc', type=int, default=1, help='number of input channels')
     parser.add_argument('--output_nc', type=int, default=1, help='number of output channels')

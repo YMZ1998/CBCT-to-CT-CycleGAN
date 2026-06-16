@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=8, help='size of the batches')
     parser.add_argument('--dataset_path', type=str, default='datasets_synthrad2025', help='root directory of the dataset')
     parser.add_argument('--dataset_name', type=str, default=None, help='dataset folder name under dataset_path')
-    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='thorax', help="The anatomy type")
+    parser.add_argument('--anatomy', choices=['brain', 'pelvis', 'thorax'], default='pelvis', help="The anatomy type")
     parser.add_argument('--lr', type=float, default=0.0001, help='initial learning rate')
     parser.add_argument('--decay_epoch', type=int, default=50,
                         help='epoch to start linearly decaying the learning rate to 0')
@@ -39,7 +39,8 @@ if __name__ == '__main__':
     parser.add_argument('--cuda', dest='cuda', action='store_true', default=True, help='use GPU computation')
     parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='use CPU computation')
     parser.add_argument('--n_cpu', type=int, default=4, help='number of cpu threads to use during batch generation')
-    parser.add_argument('--resume', action='store_true', default=1, help='resume from previous checkpoint')
+    parser.add_argument('--resume', action='store_true', default=False, help='resume from previous checkpoint')
+    parser.add_argument('--resume_path', type=str, default=None, help='path to a full training checkpoint')
     parser.add_argument('--unaligned', action='store_true', default=False, help='sample B independently from A')
     parser.add_argument('--augment', action='store_true', default=False, help='enable resize/crop/flip augmentation')
     parser.add_argument('--replay_buffer_size', type=int, default=50, help='number of generated samples to cache')
@@ -94,18 +95,6 @@ if __name__ == '__main__':
     # netD_A.apply(weights_init_normal)
     # netD_B.apply(weights_init_normal)
 
-    if opt.resume:
-        print('Resuming from previous checkpoint...')
-        # Load state dicts
-        netG_A2B.load_state_dict(
-            torch.load(os.path.join(opt.model_path, 'netG_A2B.pth'), weights_only=False, map_location='cpu'))
-        netG_B2A.load_state_dict(
-            torch.load(os.path.join(opt.model_path, 'netG_B2A.pth'), weights_only=False, map_location='cpu'))
-        netD_A.load_state_dict(
-            torch.load(os.path.join(opt.model_path, 'netD_A.pth'), weights_only=False, map_location='cpu'))
-        netD_B.load_state_dict(
-            torch.load(os.path.join(opt.model_path, 'netD_B.pth'), weights_only=False, map_location='cpu'))
-
     # Lossess
     criterion_GAN = torch.nn.MSELoss()
     # criterion_cycle = torch.nn.L1Loss()
@@ -128,6 +117,49 @@ if __name__ == '__main__':
                                                                                            opt.decay_epoch).step)
     lr_scheduler_D_B = torch.optim.lr_scheduler.LambdaLR(optimizer_D_B, lr_lambda=LambdaLR(opt.n_epochs, opt.epoch,
                                                                                            opt.decay_epoch).step)
+
+    latest_checkpoint_path = os.path.join(opt.model_path, 'latest.pth')
+    legacy_weight_paths = {
+        'netG_A2B': os.path.join(opt.model_path, 'netG_A2B.pth'),
+        'netG_B2A': os.path.join(opt.model_path, 'netG_B2A.pth'),
+        'netD_A': os.path.join(opt.model_path, 'netD_A.pth'),
+        'netD_B': os.path.join(opt.model_path, 'netD_B.pth'),
+    }
+
+    def load_legacy_weights():
+        missing = [path for path in legacy_weight_paths.values() if not os.path.exists(path)]
+        if missing:
+            raise FileNotFoundError(f"Missing checkpoint files: {missing}")
+        netG_A2B.load_state_dict(torch.load(legacy_weight_paths['netG_A2B'], weights_only=False, map_location=device))
+        netG_B2A.load_state_dict(torch.load(legacy_weight_paths['netG_B2A'], weights_only=False, map_location=device))
+        netD_A.load_state_dict(torch.load(legacy_weight_paths['netD_A'], weights_only=False, map_location=device))
+        netD_B.load_state_dict(torch.load(legacy_weight_paths['netD_B'], weights_only=False, map_location=device))
+
+    if opt.resume:
+        resume_path = opt.resume_path or latest_checkpoint_path
+        if os.path.exists(resume_path):
+            print(f"Resuming full checkpoint: {resume_path}")
+            checkpoint = torch.load(resume_path, weights_only=False, map_location=device)
+            netG_A2B.load_state_dict(checkpoint['netG_A2B'])
+            netG_B2A.load_state_dict(checkpoint['netG_B2A'])
+            netD_A.load_state_dict(checkpoint['netD_A'])
+            netD_B.load_state_dict(checkpoint['netD_B'])
+            optimizer_G.load_state_dict(checkpoint['optimizer_G'])
+            optimizer_D_A.load_state_dict(checkpoint['optimizer_D_A'])
+            optimizer_D_B.load_state_dict(checkpoint['optimizer_D_B'])
+            lr_scheduler_G.load_state_dict(checkpoint['lr_scheduler_G'])
+            lr_scheduler_D_A.load_state_dict(checkpoint['lr_scheduler_D_A'])
+            lr_scheduler_D_B.load_state_dict(checkpoint['lr_scheduler_D_B'])
+            if 'scaler' in checkpoint:
+                scaler.load_state_dict(checkpoint['scaler'])
+            completed_epoch = int(checkpoint.get('epoch', opt.epoch - 1))
+            opt.epoch = completed_epoch + 1
+            print(f"Resumed from epoch {completed_epoch}. Next epoch: {opt.epoch}")
+        else:
+            print(f"Full checkpoint not found: {resume_path}")
+            print("Trying legacy weight-only checkpoint files...")
+            load_legacy_weights()
+            print(f"Loaded legacy weights. Epoch/optimizer state is unavailable; starting from epoch {opt.epoch}.")
 
     input_A = torch.zeros(opt.batch_size, opt.input_nc, opt.size, opt.size, device=device, dtype=torch.float32)
     input_B = torch.zeros(opt.batch_size, opt.output_nc, opt.size, opt.size, device=device, dtype=torch.float32)
@@ -162,6 +194,10 @@ if __name__ == '__main__':
         logger = Logger(opt.n_epochs, len(dataloader), env=visdom_env, image_size=opt.size,
                         image_interval=opt.visdom_image_interval, plot_interval=opt.visdom_plot_interval,
                         start_epoch=opt.epoch)
+
+    if opt.epoch > opt.n_epochs:
+        print(f"Checkpoint is already past requested n_epochs ({opt.n_epochs}). Nothing to train.")
+        sys.exit(0)
 
     for epoch in range(opt.epoch, opt.n_epochs + 1):
         data_loader_train = tqdm(dataloader, file=sys.stdout)
@@ -280,6 +316,21 @@ if __name__ == '__main__':
 
         # Save models checkpoints
         if not opt.skip_save:
+            torch.save({
+                'epoch': epoch,
+                'netG_A2B': netG_A2B.state_dict(),
+                'netG_B2A': netG_B2A.state_dict(),
+                'netD_A': netD_A.state_dict(),
+                'netD_B': netD_B.state_dict(),
+                'optimizer_G': optimizer_G.state_dict(),
+                'optimizer_D_A': optimizer_D_A.state_dict(),
+                'optimizer_D_B': optimizer_D_B.state_dict(),
+                'lr_scheduler_G': lr_scheduler_G.state_dict(),
+                'lr_scheduler_D_A': lr_scheduler_D_A.state_dict(),
+                'lr_scheduler_D_B': lr_scheduler_D_B.state_dict(),
+                'scaler': scaler.state_dict(),
+                'options': vars(opt),
+            }, latest_checkpoint_path)
             torch.save(netG_A2B.state_dict(), os.path.join(opt.model_path, 'netG_A2B.pth'))
             torch.save(netG_B2A.state_dict(), os.path.join(opt.model_path, 'netG_B2A.pth'))
             torch.save(netD_A.state_dict(), os.path.join(opt.model_path, 'netD_A.pth'))
